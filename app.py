@@ -1,10 +1,10 @@
 """
-Nightmare AI Music Maker Dubstep Edition – Flask web application.
+Nightmare AI Music Maker – Flask web application.
 
 Endpoints
 ---------
 GET  /           → Serve the web UI
-POST /generate   → Generate a pattern (JSON)
+POST /generate   → Generate an EDM pattern (JSON)
 POST /render     → Render a pattern to a WAV file
 """
 
@@ -12,7 +12,7 @@ import io
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from generator.ai_generator import DubstepAIGenerator
+from generator.ai_generator import EDMAIGenerator
 from generator.audio_synthesizer import DubstepSynthesizer
 
 app = Flask(__name__)
@@ -31,10 +31,10 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    """Generate an AI dubstep pattern and return it as JSON."""
+    """Generate an AI EDM pattern and return it as JSON."""
     data  = request.get_json(silent=True) or {}
 
-    # Build wobble_override dict from dubstep tools parameters
+    # Build wobble_override dict from synth tools parameters
     wobble_override = {}
     if "wobble_rate" in data:
         wobble_override["rate"] = int(data["wobble_rate"])
@@ -50,7 +50,7 @@ def generate():
         wobble_override["cutoff_max"] = int(data["cutoff_max"])
 
     try:
-        pattern = DubstepAIGenerator().generate(
+        pattern = EDMAIGenerator().generate(
             bpm   = int(data.get("bpm",   140)),
             key   = str(data.get("key",   "C")),
             scale = str(data.get("scale", "minor")),
@@ -73,7 +73,7 @@ def render_audio():
         pattern = data["pattern"]
     else:
         try:
-            pattern = DubstepAIGenerator().generate(
+            pattern = EDMAIGenerator().generate(
                 bpm   = int(data.get("bpm",   140)),
                 key   = str(data.get("key",   "C")),
                 scale = str(data.get("scale", "minor")),
@@ -94,7 +94,7 @@ def render_audio():
         io.BytesIO(wav_bytes),
         mimetype="audio/wav",
         as_attachment=False,
-        download_name="dubstep.wav",
+        download_name="edm_track.wav",
     )
 
 
