@@ -24,15 +24,9 @@ An AI-powered application that generates authentic EDM music using Markov-chain 
 
 ### Windows desktop app (recommended)
 
-```bat
-:: 1. Install dependencies
-pip install -r requirements.txt
-
-:: 2. Launch the desktop window
-python gui.py
-```
-
-Or simply double-click **`run_windows.bat`** — no terminal needed.
+1. Install dependencies: `pip install -r requirements.txt`
+2. Launch the desktop window: `python gui.py`
+3. Prefer double-clicking? Make sure Python + pip are on PATH, install the requirements once, then double-click **`run_windows.bat`** from Explorer.
 
 ### Web server mode (all platforms)
 

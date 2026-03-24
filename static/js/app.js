@@ -34,6 +34,21 @@ const cutoffMinSlider    = document.getElementById("cutoff-min");
 const cutoffMinDisplay   = document.getElementById("cutoff-min-display");
 const cutoffMaxSlider    = document.getElementById("cutoff-max");
 const cutoffMaxDisplay   = document.getElementById("cutoff-max-display");
+const AudioCtxClass      = window.AudioContext || window.webkitAudioContext;
+
+// DJ Tools DOM references
+const djVolume          = document.getElementById("dj-volume");
+const djVolumeDisplay   = document.getElementById("dj-volume-display");
+const djFilter          = document.getElementById("dj-filter");
+const djFilterDisplay   = document.getElementById("dj-filter-display");
+const djHighpass        = document.getElementById("dj-highpass");
+const djHighpassDisplay = document.getElementById("dj-highpass-display");
+const djTempo           = document.getElementById("dj-tempo");
+const djTempoDisplay    = document.getElementById("dj-tempo-display");
+
+// DJ Tools filter resonance constants
+const DJ_LOW_PASS_Q  = 0.707;
+const DJ_HIGH_PASS_Q = 0.707;
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -42,6 +57,10 @@ let audioContext    = null;
 let audioSource     = null;
 let audioBuffer     = null;
 let isPlaying       = false;
+let masterGain      = null;
+let lowpassFilter   = null;
+let highpassFilter  = null;
+let audioGraphReady = false;
 
 // ── Slider sync ─────────────────────────────────────────────────────────────
 
@@ -80,6 +99,31 @@ cutoffMaxSlider.addEventListener("input", () => {
     cutoffMinSlider.value = newMin;
     cutoffMinDisplay.textContent = cutoffMinSlider.value;
   }
+});
+
+// DJ Tools sliders sync
+djVolume.addEventListener("input", () => {
+  const value = parseFloat(djVolume.value);
+  djVolumeDisplay.textContent = `${Math.round(value * 100)}%`;
+  if (masterGain) masterGain.gain.value = value;
+});
+
+djFilter.addEventListener("input", () => {
+  const value = parseFloat(djFilter.value);
+  djFilterDisplay.textContent = `${Math.round(value).toLocaleString()} Hz`;
+  if (lowpassFilter) lowpassFilter.frequency.value = value;
+});
+
+djHighpass.addEventListener("input", () => {
+  const value = parseFloat(djHighpass.value);
+  djHighpassDisplay.textContent = `${Math.round(value)} Hz`;
+  if (highpassFilter) highpassFilter.frequency.value = value;
+});
+
+djTempo.addEventListener("input", () => {
+  const value = parseFloat(djTempo.value);
+  djTempoDisplay.textContent = `${Math.round(value * 100)}%`;
+  if (audioSource) audioSource.playbackRate.value = value;
 });
 
 // ── Generate ────────────────────────────────────────────────────────────────
@@ -154,13 +198,15 @@ btnPlay.addEventListener("click", async () => {
       drawWaveform(audioBuffer);
     }
 
-    audioContext = audioContext || new AudioContext();
-    if (audioContext.state === "suspended") await audioContext.resume();
+    ensureAudioGraph();
+    if (audioContext && audioContext.state === "suspended") await audioContext.resume();
 
     audioSource = audioContext.createBufferSource();
     audioSource.buffer = audioBuffer;
     audioSource.loop   = true;
-    audioSource.connect(audioContext.destination);
+    // Initialize playback speed from the current DJ tempo slider value.
+    audioSource.playbackRate.value = parseFloat(djTempo.value);
+    audioSource.connect(highpassFilter);
     audioSource.start();
     isPlaying = true;
 
@@ -188,6 +234,11 @@ btnStop.addEventListener("click", () => {
   if (audioSource) {
     audioSource.loop = false;
     audioSource.stop();
+    try {
+      audioSource.disconnect();
+    } catch (err) {
+      console.warn("Audio source already disconnected", err);
+    }
     audioSource = null;
   }
   isPlaying = false;
@@ -228,6 +279,41 @@ btnDownload.addEventListener("click", async () => {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function requireAudioContext() {
+  if (!AudioCtxClass) {
+    throw new Error("Web Audio API is not available in this browser. Please switch to a modern browser (Edge, Chrome, Firefox) with Web Audio support.");
+  }
+  audioContext = audioContext || new AudioCtxClass();
+  return audioContext;
+}
+
+function ensureAudioGraph() {
+  requireAudioContext();
+
+  if (!masterGain) {
+    masterGain = audioContext.createGain();
+    masterGain.gain.value = parseFloat(djVolume.value);
+  }
+  if (!lowpassFilter) {
+    lowpassFilter = audioContext.createBiquadFilter();
+    lowpassFilter.type = "lowpass";
+    lowpassFilter.frequency.value = parseFloat(djFilter.value);
+    lowpassFilter.Q.value = DJ_LOW_PASS_Q;
+  }
+  if (!highpassFilter) {
+    highpassFilter = audioContext.createBiquadFilter();
+    highpassFilter.type = "highpass";
+    highpassFilter.frequency.value = parseFloat(djHighpass.value);
+    highpassFilter.Q.value = DJ_HIGH_PASS_Q;
+  }
+  if (!audioGraphReady) {
+    highpassFilter.connect(lowpassFilter);
+    lowpassFilter.connect(masterGain);
+    masterGain.connect(audioContext.destination);
+    audioGraphReady = true;
+  }
+}
+
 async function fetchAudioBuffer(pattern) {
   const response = await fetch("/render", {
     method:  "POST",
@@ -239,8 +325,8 @@ async function fetchAudioBuffer(pattern) {
     throw new Error(err.error || `HTTP ${response.status}`);
   }
   const arrayBuf = await response.arrayBuffer();
-  audioContext   = audioContext || new AudioContext();
-  return await audioContext.decodeAudioData(arrayBuf);
+  const ctx = requireAudioContext();
+  return await ctx.decodeAudioData(arrayBuf);
 }
 
 function setStatus(msg, type = "") {
@@ -345,3 +431,9 @@ function clearWaveform() {
 
 // Initialize canvas background
 clearWaveform();
+
+// Prime DJ control displays with their default values (guard in case elements are missing)
+if (djVolume) djVolume.dispatchEvent(new Event("input"));
+if (djFilter) djFilter.dispatchEvent(new Event("input"));
+if (djHighpass) djHighpass.dispatchEvent(new Event("input"));
+if (djTempo) djTempo.dispatchEvent(new Event("input"));

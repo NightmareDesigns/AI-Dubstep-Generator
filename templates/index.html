@@ -132,6 +132,36 @@
       <button id="btn-download" class="btn btn-secondary" disabled>⬇ Download WAV</button>
     </section>
 
+    <!-- DJ tools -->
+    <section class="dj-tools" aria-label="DJ tools">
+      <div class="dj-tools-header">
+        <h2>DJ Tools</h2>
+        <p class="subtitle">Shape the sound live: tweak volume, filters, and tempo without regenerating.</p>
+      </div>
+      <div class="dj-grid">
+        <div class="control-group">
+          <label for="dj-volume">Master Volume</label>
+          <input type="range" id="dj-volume" min="0" max="1" value="0.85" step="0.01" />
+          <span class="value-display" id="dj-volume-display">85%</span>
+        </div>
+        <div class="control-group">
+          <label for="dj-filter">Low-Pass Filter</label>
+          <input type="range" id="dj-filter" min="200" max="16000" value="16000" step="50" />
+          <span class="value-display" id="dj-filter-display">16,000 Hz</span>
+        </div>
+        <div class="control-group">
+          <label for="dj-highpass">High-Pass Filter</label>
+          <input type="range" id="dj-highpass" min="20" max="800" value="20" step="5" />
+          <span class="value-display" id="dj-highpass-display">20 Hz</span>
+        </div>
+        <div class="control-group">
+          <label for="dj-tempo">Tempo / Pitch</label>
+          <input type="range" id="dj-tempo" min="0.75" max="1.25" value="1" step="0.01" />
+          <span class="value-display" id="dj-tempo-display">100%</span>
+        </div>
+      </div>
+    </section>
+
     <!-- Status bar -->
     <div id="status-bar" class="status-bar" aria-live="polite">
       Press <strong>Generate Pattern</strong> to start.
