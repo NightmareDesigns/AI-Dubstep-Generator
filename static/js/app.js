@@ -66,7 +66,8 @@ cutoffMinSlider.addEventListener("input", () => {
   cutoffMinDisplay.textContent = cutoffMinSlider.value;
   // Ensure cutoff min doesn't exceed cutoff max
   if (parseInt(cutoffMinSlider.value, 10) >= parseInt(cutoffMaxSlider.value, 10)) {
-    cutoffMaxSlider.value = parseInt(cutoffMinSlider.value, 10) + 100;
+    const newMax = Math.min(parseInt(cutoffMinSlider.value, 10) + 100, 8000);
+    cutoffMaxSlider.value = newMax;
     cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
   }
 });
@@ -75,7 +76,8 @@ cutoffMaxSlider.addEventListener("input", () => {
   cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
   // Ensure cutoff max doesn't go below cutoff min
   if (parseInt(cutoffMaxSlider.value, 10) <= parseInt(cutoffMinSlider.value, 10)) {
-    cutoffMinSlider.value = parseInt(cutoffMaxSlider.value, 10) - 100;
+    const newMin = Math.max(parseInt(cutoffMaxSlider.value, 10) - 100, 50);
+    cutoffMinSlider.value = newMin;
     cutoffMinDisplay.textContent = cutoffMinSlider.value;
   }
 });
