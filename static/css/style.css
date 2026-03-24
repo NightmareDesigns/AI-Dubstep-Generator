@@ -157,6 +157,36 @@ html, body {
   color: var(--accent-light);
 }
 
+/* ---- dj tools ---- */
+
+.dj-tools {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dj-tools-header h2 {
+  font-size: .95rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+}
+
+.dj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dj-tools .value-display {
+  text-align: left;
+}
+
 /* ---- status bar ---- */
 
 .status-bar {

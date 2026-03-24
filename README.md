@@ -9,21 +9,16 @@ An AI-powered application that generates authentic dubstep music using Markov-ch
 - **Audio Synthesis** – Pure Python (NumPy/SciPy) synthesises 808-style kicks, electronic snares, hi-hats, and wobble bass with LFO filter modulation.
 - **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the pattern grid and waveform; play or download a WAV file.
 - **Native Windows desktop app** – Runs in its own window via pywebview — no browser required.
+- **Live DJ tools** – Master volume, high-pass/low-pass sweeps, and tempo/pitch nudging while the loop is playing.
 - **Reproducible seeds** – Pass a seed to `DubstepAIGenerator` for deterministic output.
 
 ## Quick Start
 
 ### Windows desktop app (recommended)
 
-```bat
-:: 1. Install dependencies
-pip install -r requirements.txt
-
-:: 2. Launch the desktop window
-python gui.py
-```
-
-Or simply double-click **`run_windows.bat`** — no terminal needed.
+1. Install dependencies: `pip install -r requirements.txt`
+2. Launch the desktop window: `python gui.py`
+3. Prefer double-clicking? Make sure Python + pip are on PATH, install the requirements once, then double-click **`run_windows.bat`** from Explorer.
 
 ### Web server mode (all platforms)
 
