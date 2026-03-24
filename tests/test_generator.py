@@ -3,6 +3,10 @@ Tests for the AI EDM Music Maker.
 Run with: python -m pytest tests/ -v
 """
 
+import builtins
+import importlib.util
+from pathlib import Path
+
 import pytest
 
 from generator.ai_generator import EDMAIGenerator, DubstepAIGenerator
@@ -221,6 +225,30 @@ class TestDubstepSynthesizer:
         w_slow = self.synth.render(p_slow)
         w_fast = self.synth.render(p_fast)
         assert len(w_slow) > len(w_fast)
+
+    def test_audio_synthesizer_imports_without_scipy(self, monkeypatch):
+        module_path = (
+            Path(__file__).resolve().parents[1]
+            / "generator"
+            / "audio_synthesizer.py"
+        )
+        real_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "scipy" or name.startswith("scipy."):
+                raise ImportError("scipy blocked for test")
+            return real_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        spec = importlib.util.spec_from_file_location(
+            "audio_synthesizer_no_scipy", module_path
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+
+        assert hasattr(module, "DubstepSynthesizer")
 
     @pytest.mark.parametrize("style", ["classic", "brostep", "future_bass"])
     def test_render_all_styles(self, style):

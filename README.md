@@ -6,7 +6,7 @@ An AI-powered application that generates authentic EDM music using Markov-chain 
 
 - **AI Pattern Generation** – Markov-chain models produce drum patterns, bass lines, and synth parameters that follow real EDM music-theory rules.
 - **10 EDM Genres** – Classic Dubstep, Brostep, Riddim, Future Bass, House, Techno, Electro House, Trance, Drum & Bass, and Trap each have their own transition tables and synth characteristics.
-- **Audio Synthesis** – Pure Python (NumPy/SciPy) synthesises 808-style kicks, electronic snares, hi-hats, and wobble bass with LFO filter modulation.
+- **Audio Synthesis** – Pure Python (NumPy) synthesises 808-style kicks, electronic snares, hi-hats, and wobble bass with LFO filter modulation.
 - **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the pattern grid and waveform; play or download a WAV file.
 - **Synth Tools** – Fine-tune wobble rate, depth, resonance, shape, and filter cutoff frequencies.
 - **Native Windows desktop app** – Runs in its own window via pywebview — no browser required.
@@ -73,7 +73,7 @@ gui.py                   Native desktop window launcher (pywebview)
 run_windows.bat          Double-click launcher for Windows
 generator/
   ai_generator.py        Markov-chain AI pattern generator (EDMAIGenerator)
-  audio_synthesizer.py   NumPy/SciPy audio synthesis engine
+  audio_synthesizer.py   NumPy audio synthesis engine
 templates/
   index.html             UI template
 static/

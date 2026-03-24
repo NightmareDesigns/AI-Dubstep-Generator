@@ -2,7 +2,7 @@
 Audio synthesizer for dubstep patterns.
 
 Converts AI-generated pattern dictionaries into PCM audio data (WAV).
-All synthesis is done with numpy/scipy – no external audio libraries required.
+All synthesis is done with NumPy – no external audio libraries required.
 """
 
 import io
@@ -12,7 +12,6 @@ import wave
 from typing import Any
 
 import numpy as np
-from scipy.signal import butter, lfilter
 
 
 SAMPLE_RATE = 44100  # Hz
@@ -67,11 +66,39 @@ def _adsr(
 
 
 def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.ndarray:
-    """Simple Butterworth low-pass filter."""
+    """Simple resonant biquad low-pass filter."""
     cutoff = max(20.0, min(cutoff, SAMPLE_RATE * 0.49))
-    q = max(0.01, min(resonance * 10, 30.0))
-    b, a = butter(2, cutoff / (SAMPLE_RATE / 2), btype="low")
-    return lfilter(b, a, signal).astype(np.float32)
+    q = max(0.5, min(0.5 + resonance * 9.5, 10.0))
+
+    omega = 2.0 * math.pi * cutoff / SAMPLE_RATE
+    sin_omega = math.sin(omega)
+    cos_omega = math.cos(omega)
+    alpha = sin_omega / (2.0 * q)
+
+    b0 = (1.0 - cos_omega) / 2.0
+    b1 = 1.0 - cos_omega
+    b2 = (1.0 - cos_omega) / 2.0
+    a0 = 1.0 + alpha
+    a1 = -2.0 * cos_omega
+    a2 = 1.0 - alpha
+
+    b0 /= a0
+    b1 /= a0
+    b2 /= a0
+    a1 /= a0
+    a2 /= a0
+
+    out = np.empty_like(signal, dtype=np.float32)
+    x1 = x2 = 0.0
+    y1 = y2 = 0.0
+
+    for idx, sample in enumerate(signal):
+        y0 = b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+        out[idx] = y0
+        x2, x1 = x1, float(sample)
+        y2, y1 = y1, y0
+
+    return out
 
 
 def _midi_to_hz(midi_note: int) -> float:
