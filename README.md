@@ -1,16 +1,31 @@
 # AI Dubstep Generator
 
-An AI-powered web application that generates authentic dubstep music using Markov-chain models and real-time audio synthesis.
+An AI-powered application that generates authentic dubstep music using Markov-chain models and real-time audio synthesis.
 
 ## Features
 
 - **AI Pattern Generation** – Markov-chain models produce drum patterns, bass lines, and wobble parameters that follow real dubstep music-theory rules.
 - **Three sub-genres** – Classic Dubstep, Brostep, and Future Bass each have their own transition tables and wobble characteristics.
 - **Audio Synthesis** – Pure Python (NumPy/SciPy) synthesises 808-style kicks, electronic snares, hi-hats, and wobble bass with LFO filter modulation.
-- **Interactive Web UI** – Control BPM (80–180), key, scale, style, and bar count; view the pattern grid and waveform; play in-browser or download a WAV file.
+- **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the pattern grid and waveform; play or download a WAV file.
+- **Native Windows desktop app** – Runs in its own window via pywebview — no browser required.
 - **Reproducible seeds** – Pass a seed to `DubstepAIGenerator` for deterministic output.
 
 ## Quick Start
+
+### Windows desktop app (recommended)
+
+```bat
+:: 1. Install dependencies
+pip install -r requirements.txt
+
+:: 2. Launch the desktop window
+python gui.py
+```
+
+Or simply double-click **`run_windows.bat`** — no terminal needed.
+
+### Web server mode (all platforms)
 
 ```bash
 # 1. Install dependencies
@@ -51,16 +66,19 @@ python app.py
 
 ```
 app.py                   Flask web application
+gui.py                   Native desktop window launcher (pywebview)
+run_windows.bat          Double-click launcher for Windows
 generator/
   ai_generator.py        Markov-chain AI pattern generator
   audio_synthesizer.py   NumPy/SciPy audio synthesis engine
 templates/
-  index.html             Web UI template
+  index.html             UI template
 static/
   css/style.css          Dark-themed stylesheet
   js/app.js              Web Audio API playback & waveform visualiser
 tests/
   test_generator.py      Pytest test suite (31 tests)
+  test_gui.py            Pytest tests for the GUI launcher
 requirements.txt
 ```
 
