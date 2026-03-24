@@ -10,13 +10,18 @@ Double-click this file in Windows Explorer, or run::
     python gui.py
 """
 
+import ctypes
 import socket
+import sys
 import threading
 import time
 
 import webview
 
 from app import app as flask_app
+
+APP_TITLE = "Nightmare AI Music Maker"
+APP_ID = "NightmareDesigns.AIDubstepGenerator"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,11 +51,36 @@ def _wait_for_flask(port: int, timeout: float = 10.0) -> None:
     raise RuntimeError(f"Flask did not start within {timeout:.0f}s")
 
 
+def _set_windows_app_id() -> None:
+    """Register an explicit AppUserModelID so Windows treats this as a GUI app."""
+    if sys.platform != "win32":
+        return
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+    except (AttributeError, OSError):
+        pass
+
+
+def _show_error_dialog(message: str) -> None:
+    """Display a native error dialog on Windows, falling back to stderr."""
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.user32.MessageBoxW(None, message, APP_TITLE, 0x10)
+            return
+        except (AttributeError, OSError):
+            pass
+
+    print(message, file=sys.stderr)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    _set_windows_app_id()
+
     port = _find_free_port()
 
     server_thread = threading.Thread(
@@ -62,7 +92,7 @@ def main() -> None:
     _wait_for_flask(port)
 
     webview.create_window(
-        title="Nightmare AI Music Maker",
+        title=APP_TITLE,
         url=f"http://127.0.0.1:{port}/",
         width=1040,
         height=860,
@@ -72,5 +102,15 @@ def main() -> None:
     webview.start()
 
 
+def launch() -> int:
+    """Launch the desktop app and return a process exit code."""
+    try:
+        main()
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        _show_error_dialog(f"Unable to start {APP_TITLE}.\n\n{exc}")
+        return 1
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(launch())

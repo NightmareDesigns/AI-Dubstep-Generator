@@ -8,6 +8,7 @@ environment, including headless CI, without needing a physical display.
 import socket
 import sys
 import threading
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -80,6 +81,41 @@ class TestStartFlask:
         assert response.status == 200
 
 
+class TestWindowsHelpers:
+
+    def test_set_windows_app_id_calls_shell32_on_windows(self, monkeypatch):
+        shell32 = MagicMock()
+        monkeypatch.setattr(gui.sys, "platform", "win32")
+        monkeypatch.setattr(
+            gui.ctypes,
+            "windll",
+            SimpleNamespace(shell32=shell32),
+            raising=False,
+        )
+
+        gui._set_windows_app_id()
+
+        shell32.SetCurrentProcessExplicitAppUserModelID.assert_called_once_with(
+            gui.APP_ID
+        )
+
+    def test_show_error_dialog_uses_message_box_on_windows(self, monkeypatch):
+        user32 = MagicMock()
+        monkeypatch.setattr(gui.sys, "platform", "win32")
+        monkeypatch.setattr(
+            gui.ctypes,
+            "windll",
+            SimpleNamespace(user32=user32),
+            raising=False,
+        )
+
+        gui._show_error_dialog("Boom")
+
+        user32.MessageBoxW.assert_called_once_with(
+            None, "Boom", gui.APP_TITLE, 0x10
+        )
+
+
 # ---------------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------------
@@ -90,7 +126,8 @@ class TestMain:
         _webview_mock.reset_mock()
 
     def test_creates_window_with_correct_title(self):
-        with patch.object(gui, "_start_flask"), \
+        with patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask"), \
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         _webview_mock.create_window.assert_called_once()
@@ -99,13 +136,15 @@ class TestMain:
         assert title == "Nightmare AI Music Maker"
 
     def test_calls_webview_start(self):
-        with patch.object(gui, "_start_flask"), \
+        with patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask"), \
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         _webview_mock.start.assert_called_once()
 
     def test_window_meets_minimum_size(self):
-        with patch.object(gui, "_start_flask"), \
+        with patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask"), \
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         _, kwargs = _webview_mock.create_window.call_args
@@ -113,7 +152,8 @@ class TestMain:
         assert kwargs.get("height", 0) >= 600
 
     def test_url_points_to_localhost(self):
-        with patch.object(gui, "_start_flask"), \
+        with patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask"), \
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         _, kwargs = _webview_mock.create_window.call_args
@@ -122,7 +162,32 @@ class TestMain:
 
     def test_flask_thread_is_started(self):
         """_start_flask should be called exactly once (in a thread)."""
-        with patch.object(gui, "_start_flask") as mock_flask, \
+        with patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask") as mock_flask, \
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         mock_flask.assert_called_once()
+
+    def test_sets_windows_app_id_before_creating_window(self):
+        with patch.object(gui, "_set_windows_app_id") as mock_set_app_id, \
+             patch.object(gui, "_start_flask"), \
+             patch.object(gui, "_wait_for_flask"):
+            gui.main()
+        mock_set_app_id.assert_called_once()
+
+
+class TestLaunch:
+
+    def test_returns_zero_when_main_succeeds(self):
+        with patch.object(gui, "main") as mock_main:
+            assert gui.launch() == 0
+        mock_main.assert_called_once()
+
+    def test_returns_one_and_shows_dialog_when_main_fails(self):
+        with patch.object(gui, "main", side_effect=RuntimeError("boom")), \
+             patch.object(gui, "_show_error_dialog") as mock_dialog:
+            assert gui.launch() == 1
+
+        mock_dialog.assert_called_once()
+        assert "Unable to start" in mock_dialog.call_args.args[0]
+        assert "boom" in mock_dialog.call_args.args[0]
