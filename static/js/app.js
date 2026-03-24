@@ -1,5 +1,5 @@
 /* =====================================================================
-   AI Dubstep Generator – app.js
+   Nightmare AI Music Maker Dubstep Edition – app.js
    ===================================================================== */
 
 "use strict";
@@ -23,6 +23,18 @@ const patternJson   = document.getElementById("pattern-json");
 const waveCanvas    = document.getElementById("waveform-canvas");
 const waveCtx       = waveCanvas.getContext("2d");
 
+// Dubstep Tools DOM references
+const wobbleRateSelect   = document.getElementById("wobble-rate");
+const wobbleDepthSlider  = document.getElementById("wobble-depth");
+const wobbleDepthDisplay = document.getElementById("wobble-depth-display");
+const resonanceSlider    = document.getElementById("resonance");
+const resonanceDisplay   = document.getElementById("resonance-display");
+const wobbleShapeSelect  = document.getElementById("wobble-shape");
+const cutoffMinSlider    = document.getElementById("cutoff-min");
+const cutoffMinDisplay   = document.getElementById("cutoff-min-display");
+const cutoffMaxSlider    = document.getElementById("cutoff-max");
+const cutoffMaxDisplay   = document.getElementById("cutoff-max-display");
+
 // ── State ───────────────────────────────────────────────────────────────────
 
 let currentPattern  = null;
@@ -41,6 +53,33 @@ barsSlider.addEventListener("input", () => {
   barsDisplay.textContent = barsSlider.value;
 });
 
+// Dubstep Tools sliders sync
+wobbleDepthSlider.addEventListener("input", () => {
+  wobbleDepthDisplay.textContent = wobbleDepthSlider.value + "%";
+});
+
+resonanceSlider.addEventListener("input", () => {
+  resonanceDisplay.textContent = resonanceSlider.value + "%";
+});
+
+cutoffMinSlider.addEventListener("input", () => {
+  cutoffMinDisplay.textContent = cutoffMinSlider.value;
+  // Ensure cutoff min doesn't exceed cutoff max
+  if (parseInt(cutoffMinSlider.value, 10) >= parseInt(cutoffMaxSlider.value, 10)) {
+    cutoffMaxSlider.value = parseInt(cutoffMinSlider.value, 10) + 100;
+    cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
+  }
+});
+
+cutoffMaxSlider.addEventListener("input", () => {
+  cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
+  // Ensure cutoff max doesn't go below cutoff min
+  if (parseInt(cutoffMaxSlider.value, 10) <= parseInt(cutoffMinSlider.value, 10)) {
+    cutoffMinSlider.value = parseInt(cutoffMaxSlider.value, 10) - 100;
+    cutoffMinDisplay.textContent = cutoffMinSlider.value;
+  }
+});
+
 // ── Generate ────────────────────────────────────────────────────────────────
 
 btnGenerate.addEventListener("click", async () => {
@@ -48,16 +87,31 @@ btnGenerate.addEventListener("click", async () => {
   btnGenerate.disabled = true;
 
   try {
+    // Build request body with base parameters
+    const requestBody = {
+      bpm:   parseInt(bpmSlider.value, 10),
+      key:   keySelect.value,
+      scale: scaleSelect.value,
+      style: styleSelect.value,
+      bars:  parseInt(barsSlider.value, 10),
+    };
+
+    // Add dubstep tools parameters (only if not set to auto)
+    if (wobbleRateSelect.value !== "auto") {
+      requestBody.wobble_rate = parseInt(wobbleRateSelect.value, 10);
+    }
+    if (wobbleShapeSelect.value !== "auto") {
+      requestBody.wobble_shape = wobbleShapeSelect.value;
+    }
+    requestBody.wobble_depth = parseInt(wobbleDepthSlider.value, 10) / 100;
+    requestBody.resonance = parseInt(resonanceSlider.value, 10) / 100;
+    requestBody.cutoff_min = parseInt(cutoffMinSlider.value, 10);
+    requestBody.cutoff_max = parseInt(cutoffMaxSlider.value, 10);
+
     const response = await fetch("/generate", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bpm:   parseInt(bpmSlider.value, 10),
-        key:   keySelect.value,
-        scale: scaleSelect.value,
-        style: styleSelect.value,
-        bars:  parseInt(barsSlider.value, 10),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

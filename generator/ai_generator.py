@@ -144,6 +144,7 @@ class DubstepAIGenerator:
         scale: str = "minor",
         style: str = "classic",
         bars: int = 4,
+        wobble_override: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Generate a complete dubstep pattern.
@@ -155,6 +156,8 @@ class DubstepAIGenerator:
         scale: Scale type – "minor", "major", "phrygian", or "dorian".
         style: Dubstep sub-genre – "classic", "brostep", or "future_bass".
         bars:  Number of bars to generate (1–16).
+        wobble_override: Optional dict with wobble parameters to override:
+               rate, depth, resonance, shape, cutoff_min, cutoff_max.
 
         Returns
         -------
@@ -168,7 +171,7 @@ class DubstepAIGenerator:
 
         drum_pattern  = self._generate_drums(style, bars)
         bass_pattern  = self._generate_bass(key, scale, bars)
-        wobble_params = self._generate_wobble(style, bars)
+        wobble_params = self._generate_wobble(style, bars, wobble_override)
 
         return {
             "bpm":          bpm,
@@ -239,18 +242,37 @@ class DubstepAIGenerator:
     # Wobble / LFO parameter generation
     # ------------------------------------------------------------------
 
-    def _generate_wobble(self, style: str, bars: int) -> list[dict[str, Any]]:
+    def _generate_wobble(
+        self, style: str, bars: int, override: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Generate wobble parameters for each bar.
+
+        Parameters
+        ----------
+        style:    The dubstep sub-genre style.
+        bars:     Number of bars to generate wobble params for.
+        override: Optional dict with wobble params to apply to all bars.
+                  Keys: rate, depth, resonance, shape, cutoff_min, cutoff_max.
+
+        Returns
+        -------
+        List of wobble parameter dicts, one per bar.
+        """
         wobble_list: list[dict[str, Any]] = []
         rates  = _WOBBLE_RATES_BY_STYLE[style]
+        override = override or {}
+
         for _ in range(bars):
-            wobble_list.append({
-                "rate":       self._rng.choice(rates),
-                "depth":      round(self._rng.uniform(0.4, 1.0), 2),
-                "resonance":  round(self._rng.uniform(0.5, 0.95), 2),
-                "shape":      self._rng.choice(_WOBBLE_SHAPES),
-                "cutoff_min": self._rng.randint(80, 400),
-                "cutoff_max": self._rng.randint(1200, 4000),
-            })
+            wobble_params = {
+                "rate":       override.get("rate", self._rng.choice(rates)),
+                "depth":      round(override.get("depth", self._rng.uniform(0.4, 1.0)), 2),
+                "resonance":  round(override.get("resonance", self._rng.uniform(0.5, 0.95)), 2),
+                "shape":      override.get("shape", self._rng.choice(_WOBBLE_SHAPES)),
+                "cutoff_min": override.get("cutoff_min", self._rng.randint(80, 400)),
+                "cutoff_max": override.get("cutoff_max", self._rng.randint(1200, 4000)),
+            }
+            wobble_list.append(wobble_params)
         return wobble_list
 
     # ------------------------------------------------------------------
