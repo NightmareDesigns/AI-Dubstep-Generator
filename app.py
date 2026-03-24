@@ -9,7 +9,6 @@ POST /render     → Render a pattern to a WAV file
 """
 
 import io
-import json
 
 from flask import Flask, jsonify, render_template, request, send_file
 
@@ -18,7 +17,6 @@ from generator.audio_synthesizer import DubstepSynthesizer
 
 app = Flask(__name__)
 
-_generator   = DubstepAIGenerator()
 _synthesizer = DubstepSynthesizer()
 
 
@@ -36,7 +34,7 @@ def generate():
     """Generate an AI dubstep pattern and return it as JSON."""
     data  = request.get_json(silent=True) or {}
     try:
-        pattern = _generator.generate(
+        pattern = DubstepAIGenerator().generate(
             bpm   = int(data.get("bpm",   140)),
             key   = str(data.get("key",   "C")),
             scale = str(data.get("scale", "minor")),
@@ -58,7 +56,7 @@ def render_audio():
         pattern = data["pattern"]
     else:
         try:
-            pattern = _generator.generate(
+            pattern = DubstepAIGenerator().generate(
                 bpm   = int(data.get("bpm",   140)),
                 key   = str(data.get("key",   "C")),
                 scale = str(data.get("scale", "minor")),
@@ -70,8 +68,10 @@ def render_audio():
 
     try:
         wav_bytes = _synthesizer.render(pattern)
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({"error": f"Synthesis error: {exc}"}), 500
+    except (KeyError, TypeError, ValueError) as exc:
+        return jsonify({"error": f"Invalid pattern: {exc}"}), 400
+    except Exception:  # noqa: BLE001
+        return jsonify({"error": "Synthesis error"}), 500
 
     return send_file(
         io.BytesIO(wav_bytes),
