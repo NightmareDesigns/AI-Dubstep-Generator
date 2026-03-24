@@ -66,39 +66,24 @@ def _adsr(
 
 
 def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.ndarray:
-    """Simple resonant biquad low-pass filter."""
+    """Windowed-sinc low-pass filter with a resonance-shaped transition width."""
     cutoff = max(20.0, min(cutoff, SAMPLE_RATE * 0.49))
-    q = max(0.5, min(0.5 + resonance * 9.5, 10.0))
+    resonance = max(0.0, min(resonance, 1.0))
+    normalized_cutoff = cutoff / SAMPLE_RATE
 
-    omega = 2.0 * math.pi * cutoff / SAMPLE_RATE
-    sin_omega = math.sin(omega)
-    cos_omega = math.cos(omega)
-    alpha = sin_omega / (2.0 * q)
+    taps = int(31 + (1.0 - resonance) * 32)
+    taps = min(taps, len(signal) if len(signal) % 2 == 1 else max(1, len(signal) - 1))
+    taps = max(1, taps)
+    if taps % 2 == 0:
+        taps += 1
 
-    b0 = (1.0 - cos_omega) / 2.0
-    b1 = 1.0 - cos_omega
-    b2 = (1.0 - cos_omega) / 2.0
-    a0 = 1.0 + alpha
-    a1 = -2.0 * cos_omega
-    a2 = 1.0 - alpha
+    idx = np.arange(taps, dtype=np.float32) - (taps - 1) / 2
+    kernel = 2 * normalized_cutoff * np.sinc(2 * normalized_cutoff * idx)
+    kernel *= np.hamming(taps).astype(np.float32)
+    kernel /= np.sum(kernel)
 
-    b0 /= a0
-    b1 /= a0
-    b2 /= a0
-    a1 /= a0
-    a2 /= a0
-
-    out = np.empty_like(signal, dtype=np.float32)
-    x1 = x2 = 0.0
-    y1 = y2 = 0.0
-
-    for idx, sample in enumerate(signal):
-        y0 = b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
-        out[idx] = y0
-        x2, x1 = x1, float(sample)
-        y2, y1 = y1, y0
-
-    return out
+    filtered = np.convolve(signal.astype(np.float32), kernel, mode="same")
+    return filtered.astype(np.float32)
 
 
 def _midi_to_hz(midi_note: int) -> float:
