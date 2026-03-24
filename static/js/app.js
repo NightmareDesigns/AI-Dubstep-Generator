@@ -432,8 +432,8 @@ function clearWaveform() {
 // Initialize canvas background
 clearWaveform();
 
-// Prime DJ control displays with their default values
-djVolume.dispatchEvent(new Event("input"));
-djFilter.dispatchEvent(new Event("input"));
-djHighpass.dispatchEvent(new Event("input"));
-djTempo.dispatchEvent(new Event("input"));
+// Prime DJ control displays with their default values (guard in case elements are missing)
+if (djVolume) djVolume.dispatchEvent(new Event("input"));
+if (djFilter) djFilter.dispatchEvent(new Event("input"));
+if (djHighpass) djHighpass.dispatchEvent(new Event("input"));
+if (djTempo) djTempo.dispatchEvent(new Event("input"));
