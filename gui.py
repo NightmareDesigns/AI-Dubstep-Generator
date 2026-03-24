@@ -1,4 +1,4 @@
-"""GUI launcher for the AI Dubstep Generator.
+"""GUI launcher for the Nightmare AI Music Maker.
 
 Starts the Flask server in a background thread and opens a native desktop
 window via pywebview so the app runs as a proper Windows desktop application.
@@ -62,7 +62,7 @@ def main() -> None:
     _wait_for_flask(port)
 
     webview.create_window(
-        title="AI Dubstep Generator",
+        title="Nightmare AI Music Maker",
         url=f"http://127.0.0.1:{port}/",
         width=1040,
         height=860,

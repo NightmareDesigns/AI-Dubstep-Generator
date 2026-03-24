@@ -1,22 +1,22 @@
 """
-Tests for the AI Dubstep Generator.
+Tests for the AI EDM Music Maker.
 Run with: python -m pytest tests/ -v
 """
 
 import pytest
 
-from generator.ai_generator import DubstepAIGenerator
+from generator.ai_generator import EDMAIGenerator, DubstepAIGenerator
 from generator.audio_synthesizer import DubstepSynthesizer
 
 
 # ---------------------------------------------------------------------------
-# DubstepAIGenerator tests
+# EDMAIGenerator tests
 # ---------------------------------------------------------------------------
 
-class TestDubstepAIGenerator:
+class TestEDMAIGenerator:
 
     def setup_method(self):
-        self.gen = DubstepAIGenerator(seed=42)
+        self.gen = EDMAIGenerator(seed=42)
 
     def test_generate_returns_dict(self):
         result = self.gen.generate()
@@ -53,7 +53,12 @@ class TestDubstepAIGenerator:
         assert result["style"] == "classic"
 
     @pytest.mark.parametrize("style", ["classic", "brostep", "future_bass"])
-    def test_generate_all_styles(self, style):
+    def test_generate_dubstep_styles(self, style):
+        result = self.gen.generate(style=style)
+        assert result["style"] == style
+
+    @pytest.mark.parametrize("style", ["riddim", "house", "techno", "trance", "drum_and_bass", "trap", "electro"])
+    def test_generate_all_edm_styles(self, style):
         result = self.gen.generate(style=style)
         assert result["style"] == style
 
@@ -103,15 +108,82 @@ class TestDubstepAIGenerator:
             assert w["cutoff_min"] < w["cutoff_max"]
 
     def test_reproducibility_with_seed(self):
-        g1 = DubstepAIGenerator(seed=7)
-        g2 = DubstepAIGenerator(seed=7)
+        g1 = EDMAIGenerator(seed=7)
+        g2 = EDMAIGenerator(seed=7)
         assert g1.generate(bars=2) == g2.generate(bars=2)
 
     def test_different_seeds_differ(self):
-        g1 = DubstepAIGenerator(seed=1)
-        g2 = DubstepAIGenerator(seed=2)
+        g1 = EDMAIGenerator(seed=1)
+        g2 = EDMAIGenerator(seed=2)
         # Very unlikely to be equal
         assert g1.generate(bars=4) != g2.generate(bars=4)
+
+    def test_backward_compatibility_alias(self):
+        # DubstepAIGenerator should be an alias for EDMAIGenerator
+        assert DubstepAIGenerator is EDMAIGenerator
+        gen = DubstepAIGenerator(seed=42)
+        result = gen.generate(style="classic")
+        assert result["style"] == "classic"
+
+    # ------------------------------------------------------------------
+    # Synth Tools / Wobble Override tests
+    # ------------------------------------------------------------------
+
+    def test_wobble_override_rate(self):
+        result = self.gen.generate(bars=2, wobble_override={"rate": 8})
+        for w in result["wobble"]:
+            assert w["rate"] == 8
+
+    def test_wobble_override_depth(self):
+        result = self.gen.generate(bars=2, wobble_override={"depth": 0.85})
+        for w in result["wobble"]:
+            assert w["depth"] == 0.85
+
+    def test_wobble_override_resonance(self):
+        result = self.gen.generate(bars=2, wobble_override={"resonance": 0.9})
+        for w in result["wobble"]:
+            assert w["resonance"] == 0.9
+
+    def test_wobble_override_shape(self):
+        result = self.gen.generate(bars=2, wobble_override={"shape": "square"})
+        for w in result["wobble"]:
+            assert w["shape"] == "square"
+
+    def test_wobble_override_cutoff_range(self):
+        result = self.gen.generate(
+            bars=2,
+            wobble_override={"cutoff_min": 150, "cutoff_max": 5000}
+        )
+        for w in result["wobble"]:
+            assert w["cutoff_min"] == 150
+            assert w["cutoff_max"] == 5000
+
+    def test_wobble_override_multiple_params(self):
+        override = {
+            "rate": 16,
+            "depth": 0.95,
+            "resonance": 0.8,
+            "shape": "sawtooth",
+            "cutoff_min": 100,
+            "cutoff_max": 6000,
+        }
+        result = self.gen.generate(bars=3, wobble_override=override)
+        for w in result["wobble"]:
+            assert w["rate"] == 16
+            assert w["depth"] == 0.95
+            assert w["resonance"] == 0.8
+            assert w["shape"] == "sawtooth"
+            assert w["cutoff_min"] == 100
+            assert w["cutoff_max"] == 6000
+
+    def test_wobble_partial_override(self):
+        # Only override rate, other params should still be valid
+        result = self.gen.generate(bars=2, wobble_override={"rate": 4})
+        for w in result["wobble"]:
+            assert w["rate"] == 4
+            assert 0.0 <= w["depth"] <= 1.0
+            assert 0.0 <= w["resonance"] <= 1.0
+            assert w["shape"] in ["sine", "square", "sawtooth", "triangle"]
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +243,7 @@ class TestFlaskApp:
     def test_index_returns_200(self):
         rv = self.client.get("/")
         assert rv.status_code == 200
-        assert b"AI Dubstep Generator" in rv.data
+        assert b"Nightmare AI Music Maker" in rv.data
 
     def test_generate_endpoint(self):
         rv = self.client.post(
@@ -210,3 +282,94 @@ class TestFlaskApp:
         )
         assert rv.status_code == 200
         assert rv.content_type == "audio/wav"
+
+    # ------------------------------------------------------------------
+    # Dubstep Tools API tests
+    # ------------------------------------------------------------------
+
+    def test_generate_with_wobble_rate(self):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "wobble_rate": 8},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        for w in data["wobble"]:
+            assert w["rate"] == 8
+
+    def test_generate_with_wobble_shape(self):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "wobble_shape": "square"},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        for w in data["wobble"]:
+            assert w["shape"] == "square"
+
+    def test_generate_with_wobble_depth(self):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "wobble_depth": 0.9},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        for w in data["wobble"]:
+            assert w["depth"] == 0.9
+
+    def test_generate_with_resonance(self):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "resonance": 0.85},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        for w in data["wobble"]:
+            assert w["resonance"] == 0.85
+
+    def test_generate_with_cutoff_range(self):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "cutoff_min": 150, "cutoff_max": 5500},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        for w in data["wobble"]:
+            assert w["cutoff_min"] == 150
+            assert w["cutoff_max"] == 5500
+
+    def test_generate_with_all_synth_tools(self):
+        rv = self.client.post(
+            "/generate",
+            json={
+                "bpm": 150,
+                "bars": 2,
+                "style": "brostep",
+                "wobble_rate": 16,
+                "wobble_depth": 0.95,
+                "resonance": 0.8,
+                "wobble_shape": "sawtooth",
+                "cutoff_min": 100,
+                "cutoff_max": 6000,
+            },
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["style"] == "brostep"
+        for w in data["wobble"]:
+            assert w["rate"] == 16
+            assert w["depth"] == 0.95
+            assert w["resonance"] == 0.8
+            assert w["shape"] == "sawtooth"
+            assert w["cutoff_min"] == 100
+            assert w["cutoff_max"] == 6000
+
+    @pytest.mark.parametrize("style", ["riddim", "house", "techno", "trance", "drum_and_bass", "trap", "electro"])
+    def test_generate_new_edm_styles_via_api(self, style):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "style": style},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["style"] == style

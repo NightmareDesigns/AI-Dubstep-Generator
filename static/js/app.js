@@ -1,5 +1,5 @@
 /* =====================================================================
-   AI Dubstep Generator – app.js
+   Nightmare AI Music Maker Dubstep Edition – app.js
    ===================================================================== */
 
 "use strict";
@@ -23,19 +23,17 @@ const patternJson   = document.getElementById("pattern-json");
 const waveCanvas    = document.getElementById("waveform-canvas");
 const waveCtx       = waveCanvas.getContext("2d");
 
-const djVolume      = document.getElementById("dj-volume");
-const djVolumeDisp  = document.getElementById("dj-volume-display");
-const djFilter      = document.getElementById("dj-filter");
-const djFilterDisp  = document.getElementById("dj-filter-display");
-const djHighpass    = document.getElementById("dj-highpass");
-const djHighDisp    = document.getElementById("dj-highpass-display");
-const djTempo       = document.getElementById("dj-tempo");
-const djTempoDisp   = document.getElementById("dj-tempo-display");
-
-// Keep the prefixed fallback for older WebView/Safari engines used in some desktops.
-const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-const DJ_LOW_PASS_Q  = 0.9; // Slight resonance for musical sweep
-const DJ_HIGH_PASS_Q = 0.7; // Gentle slope to avoid harshness
+// Dubstep Tools DOM references
+const wobbleRateSelect   = document.getElementById("wobble-rate");
+const wobbleDepthSlider  = document.getElementById("wobble-depth");
+const wobbleDepthDisplay = document.getElementById("wobble-depth-display");
+const resonanceSlider    = document.getElementById("resonance");
+const resonanceDisplay   = document.getElementById("resonance-display");
+const wobbleShapeSelect  = document.getElementById("wobble-shape");
+const cutoffMinSlider    = document.getElementById("cutoff-min");
+const cutoffMinDisplay   = document.getElementById("cutoff-min-display");
+const cutoffMaxSlider    = document.getElementById("cutoff-max");
+const cutoffMaxDisplay   = document.getElementById("cutoff-max-display");
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -59,28 +57,33 @@ barsSlider.addEventListener("input", () => {
   barsDisplay.textContent = barsSlider.value;
 });
 
-djVolume.addEventListener("input", () => {
-  const gain = parseFloat(djVolume.value);
-  djVolumeDisp.textContent = `${Math.round(gain * 100)}%`;
-  if (masterGain) masterGain.gain.value = gain;
+// Dubstep Tools sliders sync
+wobbleDepthSlider.addEventListener("input", () => {
+  wobbleDepthDisplay.textContent = wobbleDepthSlider.value + "%";
 });
 
-djFilter.addEventListener("input", () => {
-  const freq = parseFloat(djFilter.value);
-  djFilterDisp.textContent = `${Math.round(freq).toLocaleString()} Hz`;
-  if (lowpassFilter) lowpassFilter.frequency.value = freq;
+resonanceSlider.addEventListener("input", () => {
+  resonanceDisplay.textContent = resonanceSlider.value + "%";
 });
 
-djHighpass.addEventListener("input", () => {
-  const freq = parseFloat(djHighpass.value);
-  djHighDisp.textContent = `${Math.round(freq)} Hz`;
-  if (highpassFilter) highpassFilter.frequency.value = freq;
+cutoffMinSlider.addEventListener("input", () => {
+  cutoffMinDisplay.textContent = cutoffMinSlider.value;
+  // Ensure cutoff min doesn't exceed cutoff max
+  if (parseInt(cutoffMinSlider.value, 10) >= parseInt(cutoffMaxSlider.value, 10)) {
+    const newMax = Math.min(parseInt(cutoffMinSlider.value, 10) + 100, 8000);
+    cutoffMaxSlider.value = newMax;
+    cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
+  }
 });
 
-djTempo.addEventListener("input", () => {
-  const tempo = parseFloat(djTempo.value);
-  djTempoDisp.textContent = `${Math.round(tempo * 100)}%`;
-  if (audioSource) audioSource.playbackRate.value = tempo;
+cutoffMaxSlider.addEventListener("input", () => {
+  cutoffMaxDisplay.textContent = cutoffMaxSlider.value;
+  // Ensure cutoff max doesn't go below cutoff min
+  if (parseInt(cutoffMaxSlider.value, 10) <= parseInt(cutoffMinSlider.value, 10)) {
+    const newMin = Math.max(parseInt(cutoffMaxSlider.value, 10) - 100, 50);
+    cutoffMinSlider.value = newMin;
+    cutoffMinDisplay.textContent = cutoffMinSlider.value;
+  }
 });
 
 // ── Generate ────────────────────────────────────────────────────────────────
@@ -90,16 +93,31 @@ btnGenerate.addEventListener("click", async () => {
   btnGenerate.disabled = true;
 
   try {
+    // Build request body with base parameters
+    const requestBody = {
+      bpm:   parseInt(bpmSlider.value, 10),
+      key:   keySelect.value,
+      scale: scaleSelect.value,
+      style: styleSelect.value,
+      bars:  parseInt(barsSlider.value, 10),
+    };
+
+    // Add dubstep tools parameters (only if not set to auto)
+    if (wobbleRateSelect.value !== "auto") {
+      requestBody.wobble_rate = parseInt(wobbleRateSelect.value, 10);
+    }
+    if (wobbleShapeSelect.value !== "auto") {
+      requestBody.wobble_shape = wobbleShapeSelect.value;
+    }
+    requestBody.wobble_depth = parseInt(wobbleDepthSlider.value, 10) / 100;
+    requestBody.resonance = parseInt(resonanceSlider.value, 10) / 100;
+    requestBody.cutoff_min = parseInt(cutoffMinSlider.value, 10);
+    requestBody.cutoff_max = parseInt(cutoffMaxSlider.value, 10);
+
     const response = await fetch("/generate", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bpm:   parseInt(bpmSlider.value, 10),
-        key:   keySelect.value,
-        scale: scaleSelect.value,
-        style: styleSelect.value,
-        bars:  parseInt(barsSlider.value, 10),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

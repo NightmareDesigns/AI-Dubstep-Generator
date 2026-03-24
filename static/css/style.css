@@ -1,5 +1,5 @@
 /* =========================================================
-   AI Dubstep Generator – stylesheet
+   Nightmare AI Music Maker Dubstep Edition – stylesheet
    ========================================================= */
 
 /* Reset & base */
@@ -74,6 +74,25 @@ html, body {
   border-radius: var(--radius);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+/* ---- dubstep tools panel ---- */
+
+.dubstep-tools {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.dubstep-tools .panel-title {
+  grid-column: 1 / -1;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--accent-light);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .control-group {

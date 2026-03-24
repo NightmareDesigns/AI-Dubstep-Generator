@@ -96,7 +96,7 @@ class TestMain:
         _webview_mock.create_window.assert_called_once()
         args, kwargs = _webview_mock.create_window.call_args
         title = args[0] if args else kwargs.get("title")
-        assert title == "AI Dubstep Generator"
+        assert title == "Nightmare AI Music Maker"
 
     def test_calls_webview_start(self):
         with patch.object(gui, "_start_flask"), \
