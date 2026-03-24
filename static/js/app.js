@@ -34,6 +34,21 @@ const cutoffMinSlider    = document.getElementById("cutoff-min");
 const cutoffMinDisplay   = document.getElementById("cutoff-min-display");
 const cutoffMaxSlider    = document.getElementById("cutoff-max");
 const cutoffMaxDisplay   = document.getElementById("cutoff-max-display");
+const AudioCtxClass      = window.AudioContext || window.webkitAudioContext;
+
+// DJ Tools DOM references
+const djVolume          = document.getElementById("dj-volume");
+const djVolumeDisplay   = document.getElementById("dj-volume-display");
+const djFilter          = document.getElementById("dj-filter");
+const djFilterDisplay   = document.getElementById("dj-filter-display");
+const djHighpass        = document.getElementById("dj-highpass");
+const djHighpassDisplay = document.getElementById("dj-highpass-display");
+const djTempo           = document.getElementById("dj-tempo");
+const djTempoDisplay    = document.getElementById("dj-tempo-display");
+
+// DJ Tools filter resonance constants
+const DJ_LOW_PASS_Q  = 0.707;
+const DJ_HIGH_PASS_Q = 0.707;
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +99,31 @@ cutoffMaxSlider.addEventListener("input", () => {
     cutoffMinSlider.value = newMin;
     cutoffMinDisplay.textContent = cutoffMinSlider.value;
   }
+});
+
+// DJ Tools sliders sync
+djVolume.addEventListener("input", () => {
+  const value = parseFloat(djVolume.value);
+  djVolumeDisplay.textContent = `${Math.round(value * 100)}%`;
+  if (masterGain) masterGain.gain.value = value;
+});
+
+djFilter.addEventListener("input", () => {
+  const value = parseFloat(djFilter.value);
+  djFilterDisplay.textContent = `${Math.round(value).toLocaleString()} Hz`;
+  if (lowpassFilter) lowpassFilter.frequency.value = value;
+});
+
+djHighpass.addEventListener("input", () => {
+  const value = parseFloat(djHighpass.value);
+  djHighpassDisplay.textContent = `${Math.round(value)} Hz`;
+  if (highpassFilter) highpassFilter.frequency.value = value;
+});
+
+djTempo.addEventListener("input", () => {
+  const value = parseFloat(djTempo.value);
+  djTempoDisplay.textContent = `${Math.round(value * 100)}%`;
+  if (audioSource) audioSource.playbackRate.value = value;
 });
 
 // ── Generate ────────────────────────────────────────────────────────────────
