@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Dubstep Generator</title>
+  <title>Nightmare AI Music Maker Dubstep Edition</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
 
     <!-- Header -->
     <header class="app-header">
-      <h1>🎛️ AI Dubstep Generator</h1>
+      <h1>🎛️ Nightmare AI Music Maker Dubstep Edition</h1>
       <p class="subtitle">Powered by Markov-chain AI – generate authentic dubstep beats in seconds</p>
     </header>
 
@@ -56,6 +56,58 @@
         <label for="bars">Bars</label>
         <input type="range" id="bars" min="1" max="16" value="4" step="1" />
         <span class="value-display" id="bars-display">4</span>
+      </div>
+    </section>
+
+    <!-- Dubstep Tools panel -->
+    <section class="controls-panel dubstep-tools" aria-label="Dubstep Tools">
+      <h2 class="panel-title">🔊 Dubstep Tools</h2>
+
+      <div class="control-group">
+        <label for="wobble-rate">Wobble Rate (Hz)</label>
+        <select id="wobble-rate">
+          <option value="auto">Auto (style-based)</option>
+          <option value="1">1 Hz</option>
+          <option value="2">2 Hz</option>
+          <option value="4">4 Hz</option>
+          <option value="8">8 Hz</option>
+          <option value="16">16 Hz</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="wobble-depth">Wobble Depth</label>
+        <input type="range" id="wobble-depth" min="0" max="100" value="70" step="5" />
+        <span class="value-display" id="wobble-depth-display">70%</span>
+      </div>
+
+      <div class="control-group">
+        <label for="resonance">Resonance</label>
+        <input type="range" id="resonance" min="0" max="100" value="70" step="5" />
+        <span class="value-display" id="resonance-display">70%</span>
+      </div>
+
+      <div class="control-group">
+        <label for="wobble-shape">Wobble Shape</label>
+        <select id="wobble-shape">
+          <option value="auto">Auto (random)</option>
+          <option value="sine">Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth">Sawtooth</option>
+          <option value="triangle">Triangle</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="cutoff-min">Cutoff Min (Hz)</label>
+        <input type="range" id="cutoff-min" min="50" max="800" value="200" step="10" />
+        <span class="value-display" id="cutoff-min-display">200</span>
+      </div>
+
+      <div class="control-group">
+        <label for="cutoff-max">Cutoff Max (Hz)</label>
+        <input type="range" id="cutoff-max" min="800" max="8000" value="3000" step="100" />
+        <span class="value-display" id="cutoff-max-display">3000</span>
       </div>
     </section>
 

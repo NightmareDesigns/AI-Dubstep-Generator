@@ -1,5 +1,5 @@
 """
-AI Dubstep Generator – Flask web application.
+Nightmare AI Music Maker Dubstep Edition – Flask web application.
 
 Endpoints
 ---------
@@ -33,6 +33,22 @@ def index():
 def generate():
     """Generate an AI dubstep pattern and return it as JSON."""
     data  = request.get_json(silent=True) or {}
+
+    # Build wobble_override dict from dubstep tools parameters
+    wobble_override = {}
+    if "wobble_rate" in data:
+        wobble_override["rate"] = int(data["wobble_rate"])
+    if "wobble_shape" in data:
+        wobble_override["shape"] = str(data["wobble_shape"])
+    if "wobble_depth" in data:
+        wobble_override["depth"] = float(data["wobble_depth"])
+    if "resonance" in data:
+        wobble_override["resonance"] = float(data["resonance"])
+    if "cutoff_min" in data:
+        wobble_override["cutoff_min"] = int(data["cutoff_min"])
+    if "cutoff_max" in data:
+        wobble_override["cutoff_max"] = int(data["cutoff_max"])
+
     try:
         pattern = DubstepAIGenerator().generate(
             bpm   = int(data.get("bpm",   140)),
@@ -40,6 +56,7 @@ def generate():
             scale = str(data.get("scale", "minor")),
             style = str(data.get("style", "classic")),
             bars  = int(data.get("bars",  4)),
+            wobble_override = wobble_override if wobble_override else None,
         )
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400

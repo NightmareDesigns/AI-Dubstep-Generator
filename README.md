@@ -1,4 +1,4 @@
-# AI Dubstep Generator
+# Nightmare AI Music Maker Dubstep Edition
 
 An AI-powered application that generates authentic dubstep music using Markov-chain models and real-time audio synthesis.
 
