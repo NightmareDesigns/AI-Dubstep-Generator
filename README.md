@@ -32,15 +32,19 @@ python app.py
 
 ### `/generate` example
 
-```json
-// Request
-{ "bpm": 140, "key": "D", "scale": "minor", "style": "brostep", "bars": 4 }
+**Request:**
 
-// Response (truncated)
+```json
+{ "bpm": 140, "key": "D", "scale": "minor", "style": "brostep", "bars": 4 }
+```
+
+**Response (truncated):**
+
+```json
 { "bpm": 140, "key": "D", "scale": "minor", "style": "brostep", "bars": 4,
-  "drums": { "kick": [[…],[…],…], "snare": [[…],…], "hihat": [[…],…] },
-  "bass":  { "root_midi": 38, "notes": [[…],…] },
-  "wobble": [{ "rate": 4, "depth": 0.87, "resonance": 0.72, … }, …] }
+  "drums": { "kick": [[0,0,0,0],[0,0,0,0]], "snare": [[0,0,0,0]], "hihat": [[0,0,0,0]] },
+  "bass":  { "root_midi": 38, "notes": [[38,0,38,0]] },
+  "wobble": [{ "rate": 4, "depth": 0.87, "resonance": 0.72 }] }
 ```
 
 ## Project Structure
