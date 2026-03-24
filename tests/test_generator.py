@@ -1,22 +1,22 @@
 """
-Tests for the AI Dubstep Generator.
+Tests for the AI EDM Music Maker.
 Run with: python -m pytest tests/ -v
 """
 
 import pytest
 
-from generator.ai_generator import DubstepAIGenerator
+from generator.ai_generator import EDMAIGenerator, DubstepAIGenerator
 from generator.audio_synthesizer import DubstepSynthesizer
 
 
 # ---------------------------------------------------------------------------
-# DubstepAIGenerator tests
+# EDMAIGenerator tests
 # ---------------------------------------------------------------------------
 
-class TestDubstepAIGenerator:
+class TestEDMAIGenerator:
 
     def setup_method(self):
-        self.gen = DubstepAIGenerator(seed=42)
+        self.gen = EDMAIGenerator(seed=42)
 
     def test_generate_returns_dict(self):
         result = self.gen.generate()
@@ -53,7 +53,12 @@ class TestDubstepAIGenerator:
         assert result["style"] == "classic"
 
     @pytest.mark.parametrize("style", ["classic", "brostep", "future_bass"])
-    def test_generate_all_styles(self, style):
+    def test_generate_dubstep_styles(self, style):
+        result = self.gen.generate(style=style)
+        assert result["style"] == style
+
+    @pytest.mark.parametrize("style", ["riddim", "house", "techno", "trance", "drum_and_bass", "trap", "electro"])
+    def test_generate_all_edm_styles(self, style):
         result = self.gen.generate(style=style)
         assert result["style"] == style
 
@@ -103,18 +108,25 @@ class TestDubstepAIGenerator:
             assert w["cutoff_min"] < w["cutoff_max"]
 
     def test_reproducibility_with_seed(self):
-        g1 = DubstepAIGenerator(seed=7)
-        g2 = DubstepAIGenerator(seed=7)
+        g1 = EDMAIGenerator(seed=7)
+        g2 = EDMAIGenerator(seed=7)
         assert g1.generate(bars=2) == g2.generate(bars=2)
 
     def test_different_seeds_differ(self):
-        g1 = DubstepAIGenerator(seed=1)
-        g2 = DubstepAIGenerator(seed=2)
+        g1 = EDMAIGenerator(seed=1)
+        g2 = EDMAIGenerator(seed=2)
         # Very unlikely to be equal
         assert g1.generate(bars=4) != g2.generate(bars=4)
 
+    def test_backward_compatibility_alias(self):
+        # DubstepAIGenerator should be an alias for EDMAIGenerator
+        assert DubstepAIGenerator is EDMAIGenerator
+        gen = DubstepAIGenerator(seed=42)
+        result = gen.generate(style="classic")
+        assert result["style"] == "classic"
+
     # ------------------------------------------------------------------
-    # Dubstep Tools / Wobble Override tests
+    # Synth Tools / Wobble Override tests
     # ------------------------------------------------------------------
 
     def test_wobble_override_rate(self):
@@ -231,7 +243,7 @@ class TestFlaskApp:
     def test_index_returns_200(self):
         rv = self.client.get("/")
         assert rv.status_code == 200
-        assert b"Nightmare AI Music Maker Dubstep Edition" in rv.data
+        assert b"Nightmare AI Music Maker" in rv.data
 
     def test_generate_endpoint(self):
         rv = self.client.post(
@@ -326,7 +338,7 @@ class TestFlaskApp:
             assert w["cutoff_min"] == 150
             assert w["cutoff_max"] == 5500
 
-    def test_generate_with_all_dubstep_tools(self):
+    def test_generate_with_all_synth_tools(self):
         rv = self.client.post(
             "/generate",
             json={
@@ -351,3 +363,13 @@ class TestFlaskApp:
             assert w["shape"] == "sawtooth"
             assert w["cutoff_min"] == 100
             assert w["cutoff_max"] == 6000
+
+    @pytest.mark.parametrize("style", ["riddim", "house", "techno", "trance", "drum_and_bass", "trap", "electro"])
+    def test_generate_new_edm_styles_via_api(self, style):
+        rv = self.client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "style": style},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["style"] == style

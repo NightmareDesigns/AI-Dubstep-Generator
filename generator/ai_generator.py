@@ -1,8 +1,9 @@
 """
-AI-powered pattern generator for dubstep music.
+AI-powered pattern generator for EDM music.
 
 Uses Markov chains and probabilistic models to generate authentic
-dubstep drum patterns, bass lines, and wobble parameters.
+EDM drum patterns, bass lines, and wobble/synth parameters.
+Supports dubstep, riddim, house, techno, trance, drum & bass, and more.
 """
 
 import random
@@ -14,9 +15,10 @@ from typing import Any
 
 # Drum pattern transitions: each state is a 16-step bar (1 = hit, 0 = rest).
 # Represented compactly as hex bitmasks over 16 steps.
-# States are keyed by a "style tag" that corresponds to the DubstepStyle.
+# States are keyed by a "style tag" that corresponds to the EDM style.
 
 _KICK_STATES: dict[str, list[int]] = {
+    # Dubstep styles
     "classic":    [0b1000100010001000,
                    0b1000100010001010,
                    0b1001100010001000,
@@ -29,9 +31,45 @@ _KICK_STATES: dict[str, list[int]] = {
                    0b1000100000001000,
                    0b1000000010001000,
                    0b1010000010000000],
+    # Riddim - heavy, minimal, half-time feel
+    "riddim":     [0b1000000010000000,
+                   0b1000000010001000,
+                   0b1000100010000000,
+                   0b1000000010000010],
+    # House - four on the floor
+    "house":      [0b1000100010001000,
+                   0b1000100010001000,
+                   0b1000100010001000,
+                   0b1000100010001001],
+    # Techno - driving four on the floor with variations
+    "techno":     [0b1000100010001000,
+                   0b1000100010001010,
+                   0b1000100110001000,
+                   0b1001100010001000],
+    # Trance - four on the floor, uplifting
+    "trance":     [0b1000100010001000,
+                   0b1000100010001000,
+                   0b1000100010001000,
+                   0b1000100010001000],
+    # Drum and Bass - breakbeat patterns
+    "drum_and_bass": [0b1000001000100010,
+                      0b1000010010000100,
+                      0b1000001010001000,
+                      0b1010000010001000],
+    # Trap - 808 heavy, syncopated
+    "trap":       [0b1000000010000000,
+                   0b1000001000000010,
+                   0b1000000010000100,
+                   0b1000100000001000],
+    # Electro House - big room energy
+    "electro":    [0b1000100010001000,
+                   0b1000100010001010,
+                   0b1000100010101000,
+                   0b1010100010001000],
 }
 
 _SNARE_STATES: dict[str, list[int]] = {
+    # Dubstep styles
     "classic":    [0b0000100000001000,
                    0b0000100000001001,
                    0b0000100100001000,
@@ -44,9 +82,45 @@ _SNARE_STATES: dict[str, list[int]] = {
                    0b0000100000001100,
                    0b0000000000001000,
                    0b0001000000001000],
+    # Riddim - heavy snare on 3
+    "riddim":     [0b0000100000001000,
+                   0b0000100000001000,
+                   0b0000100000001010,
+                   0b0000100000101000],
+    # House - clap/snare on 2 and 4
+    "house":      [0b0000100000001000,
+                   0b0000100000001000,
+                   0b0000100000001001,
+                   0b0000100100001000],
+    # Techno - industrial snare patterns
+    "techno":     [0b0000100000001000,
+                   0b0000100000001010,
+                   0b0000100010001000,
+                   0b0010100000001000],
+    # Trance - driving snare
+    "trance":     [0b0000100000001000,
+                   0b0000100000001000,
+                   0b0000100000001001,
+                   0b0000100000001000],
+    # Drum and Bass - breakbeat snare
+    "drum_and_bass": [0b0000100001001000,
+                      0b0000100100001000,
+                      0b0010100000001000,
+                      0b0000100000101000],
+    # Trap - layered snare/clap
+    "trap":       [0b0000100000001000,
+                   0b0000100000001000,
+                   0b0000100000001001,
+                   0b0000100000011000],
+    # Electro House - punchy snare
+    "electro":    [0b0000100000001000,
+                   0b0000100000001010,
+                   0b0000100000001000,
+                   0b0000110000001000],
 }
 
 _HIHAT_STATES: dict[str, list[int]] = {
+    # Dubstep styles
     "classic":    [0b0101010101010101,
                    0b0101010101010100,
                    0b1101010101010101,
@@ -59,6 +133,41 @@ _HIHAT_STATES: dict[str, list[int]] = {
                    0b1111111011111110,
                    0b1011111111111110,
                    0b1111111111011111],
+    # Riddim - minimal hats
+    "riddim":     [0b0100010001000100,
+                   0b0101010101010101,
+                   0b0100010001010100,
+                   0b0101010001000101],
+    # House - offbeat hats
+    "house":      [0b0101010101010101,
+                   0b0101010101010101,
+                   0b0111010101010101,
+                   0b0101010101010111],
+    # Techno - driving hats
+    "techno":     [0b1111111111111111,
+                   0b1111111111111110,
+                   0b1110111111111111,
+                   0b1111111011111111],
+    # Trance - constant energy
+    "trance":     [0b1111111111111111,
+                   0b1111111111111111,
+                   0b1111111011111111,
+                   0b1111111111111110],
+    # Drum and Bass - fast breakbeat hats
+    "drum_and_bass": [0b1111111111111111,
+                      0b1110111011101110,
+                      0b1111111111111111,
+                      0b1111011111110111],
+    # Trap - rolling hats
+    "trap":       [0b0101010101010101,
+                   0b0101011101010111,
+                   0b0101010111110101,
+                   0b1111010101010101],
+    # Electro House - energetic hats
+    "electro":    [0b0101010101010101,
+                   0b1101010101010101,
+                   0b0101010101010111,
+                   0b0101011101010101],
 }
 
 # Markov transition weights for state indices (4 states each).
@@ -112,9 +221,24 @@ _BASS_NOTE_TRANSITIONS = [
 # ---------------------------------------------------------------------------
 
 _WOBBLE_RATES_BY_STYLE = {
-    "classic":    [1, 2, 4],
-    "brostep":    [4, 8, 16],
-    "future_bass":[2, 4, 8],
+    # Dubstep styles
+    "classic":      [1, 2, 4],
+    "brostep":      [4, 8, 16],
+    "future_bass":  [2, 4, 8],
+    # Riddim - slow, heavy wobble
+    "riddim":       [1, 2, 4],
+    # House - subtle sidechain/filter movement
+    "house":        [1, 2, 4],
+    # Techno - precise, mechanical
+    "techno":       [2, 4, 8],
+    # Trance - sweeping, evolving
+    "trance":       [1, 2, 4],
+    # Drum and Bass - fast modulation
+    "drum_and_bass": [4, 8, 16],
+    # Trap - slow 808 wobble
+    "trap":         [1, 2, 4],
+    # Electro House - punchy sidechain
+    "electro":      [2, 4, 8],
 }
 
 _WOBBLE_SHAPES = ["sine", "square", "sawtooth", "triangle"]
@@ -124,10 +248,11 @@ _WOBBLE_SHAPES = ["sine", "square", "sawtooth", "triangle"]
 # Main generator class
 # ---------------------------------------------------------------------------
 
-class DubstepAIGenerator:
+class EDMAIGenerator:
     """
-    Generates AI-driven dubstep patterns using Markov chains and
-    weighted probabilistic models.
+    Generates AI-driven EDM patterns using Markov chains and
+    weighted probabilistic models. Supports multiple EDM genres including
+    dubstep, riddim, house, techno, trance, drum & bass, trap, and electro.
     """
 
     def __init__(self, seed: int | None = None) -> None:
@@ -147,14 +272,16 @@ class DubstepAIGenerator:
         wobble_override: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
-        Generate a complete dubstep pattern.
+        Generate a complete EDM pattern.
 
         Parameters
         ----------
         bpm:   Beats per minute (80–180).
         key:   Root key, e.g. "C", "F#".
         scale: Scale type – "minor", "major", "phrygian", or "dorian".
-        style: Dubstep sub-genre – "classic", "brostep", or "future_bass".
+        style: EDM genre – "classic" (dubstep), "brostep", "future_bass",
+               "riddim", "house", "techno", "trance", "drum_and_bass",
+               "trap", or "electro".
         bars:  Number of bars to generate (1–16).
         wobble_override: Optional dict with wobble parameters to override:
                rate, depth, resonance, shape, cutoff_min, cutoff_max.
@@ -283,3 +410,7 @@ class DubstepAIGenerator:
         weights = transitions[current % len(transitions)]
         population = list(range(len(weights)))
         return self._rng.choices(population, weights=weights)[0]
+
+
+# Backward compatibility alias
+DubstepAIGenerator = EDMAIGenerator

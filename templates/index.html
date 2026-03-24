@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nightmare AI Music Maker Dubstep Edition</title>
+  <title>Nightmare AI Music Maker</title>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
@@ -11,8 +11,8 @@
 
     <!-- Header -->
     <header class="app-header">
-      <h1>🎛️ Nightmare AI Music Maker Dubstep Edition</h1>
-      <p class="subtitle">Powered by Markov-chain AI – generate authentic dubstep beats in seconds</p>
+      <h1>🎛️ Nightmare AI Music Maker</h1>
+      <p class="subtitle">Powered by Markov-chain AI – generate authentic EDM beats in seconds</p>
     </header>
 
     <!-- Controls panel -->
@@ -46,9 +46,22 @@
       <div class="control-group">
         <label for="style">Style</label>
         <select id="style">
-          <option value="classic">Classic Dubstep</option>
-          <option value="brostep">Brostep</option>
-          <option value="future_bass">Future Bass</option>
+          <optgroup label="Dubstep">
+            <option value="classic">Classic Dubstep</option>
+            <option value="brostep">Brostep</option>
+            <option value="riddim">Riddim</option>
+            <option value="future_bass">Future Bass</option>
+          </optgroup>
+          <optgroup label="House &amp; Techno">
+            <option value="house">House</option>
+            <option value="techno">Techno</option>
+            <option value="electro">Electro House</option>
+          </optgroup>
+          <optgroup label="Other EDM">
+            <option value="trance">Trance</option>
+            <option value="drum_and_bass">Drum &amp; Bass</option>
+            <option value="trap">Trap</option>
+          </optgroup>
         </select>
       </div>
 
@@ -59,9 +72,9 @@
       </div>
     </section>
 
-    <!-- Dubstep Tools panel -->
-    <section class="controls-panel dubstep-tools" aria-label="Dubstep Tools">
-      <h2 class="panel-title">🔊 Dubstep Tools</h2>
+    <!-- EDM Synth Tools panel -->
+    <section class="controls-panel dubstep-tools" aria-label="Synth Tools">
+      <h2 class="panel-title">🔊 Synth Tools</h2>
 
       <div class="control-group">
         <label for="wobble-rate">Wobble Rate (Hz)</label>
