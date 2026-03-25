@@ -1,13 +1,13 @@
 # Nightmare AI Music Maker
 
-An AI-powered application that generates authentic EDM music using Markov-chain models and real-time audio synthesis. Supports multiple genres including dubstep, riddim, house, techno, trance, drum & bass, trap, and electro.
+An AI-powered application that generates EDM music and song sketches using a lightweight corpus-trained sequence model and real-time audio synthesis. Supports multiple genres including dubstep, riddim, house, techno, trance, drum & bass, trap, and electro.
 
 ## Features
 
-- **AI Pattern Generation** – Markov-chain models produce drum patterns, bass lines, and synth parameters that follow real EDM music-theory rules.
+- **AI Song Generation** – A corpus-trained sequence model learns from embedded EDM phrases to produce drums, bass lines, lead melodies, and song sections.
 - **10 EDM Genres** – Classic Dubstep, Brostep, Riddim, Future Bass, House, Techno, Electro House, Trance, Drum & Bass, and Trap each have their own transition tables and synth characteristics.
-- **Audio Synthesis** – Pure Python (NumPy) synthesises 808-style kicks, electronic snares, hi-hats, and wobble bass with LFO filter modulation.
-- **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the pattern grid and waveform; play or download a WAV file.
+- **Audio Synthesis** – Pure Python (NumPy) synthesises 808-style kicks, electronic snares, hi-hats, wobble bass, and a generated lead synth layer.
+- **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the generated song data and waveform; play or download a WAV file.
 - **Synth Tools** – Fine-tune wobble rate, depth, resonance, shape, and filter cutoff frequencies.
 - **Native Windows desktop app** – Runs in its own window via pywebview — no browser required.
 - **Reproducible seeds** – Pass a seed to `EDMAIGenerator` for deterministic output.
@@ -45,8 +45,8 @@ python app.py
 | Method | Path        | Description                                        |
 |--------|-------------|----------------------------------------------------|
 | GET    | `/`         | Serve the web UI                                   |
-| POST   | `/generate` | Generate a pattern (JSON body → JSON response)     |
-| POST   | `/render`   | Render a pattern or params to a downloadable WAV   |
+| POST   | `/generate` | Generate a song sketch (JSON body → JSON response) |
+| POST   | `/render`   | Render a generated song or params to a WAV file    |
 
 ### `/generate` example
 
@@ -60,8 +60,11 @@ python app.py
 
 ```json
 { "bpm": 140, "key": "D", "scale": "minor", "style": "riddim", "bars": 4,
+  "generator": { "type": "corpus_sequence_model" },
+  "song": { "type": "full_song", "sections": [{ "name": "intro", "bars": 1, "energy": 0.25 }] },
   "drums": { "kick": [[0,0,0,0],[0,0,0,0]], "snare": [[0,0,0,0]], "hihat": [[0,0,0,0]] },
-  "bass":  { "root_midi": 38, "notes": [[38,0,38,0]] },
+  "bass":  { "root_midi": 38, "notes": [[{"step":0,"midi":38,"duration":4,"velocity":120}]] },
+  "lead":  { "instrument": "lead_synth", "notes": [[{"step":8,"midi":57,"duration":2,"velocity":92}]] },
   "wobble": [{ "rate": 4, "depth": 0.87, "resonance": 0.72 }] }
 ```
 
@@ -72,7 +75,7 @@ app.py                   Flask web application
 gui.py                   Native desktop window launcher (pywebview)
 run_windows.bat          Double-click launcher for Windows
 generator/
-  ai_generator.py        Markov-chain AI pattern generator (EDMAIGenerator)
+  ai_generator.py        Corpus-trained AI song generator (EDMAIGenerator)
   audio_synthesizer.py   NumPy audio synthesis engine
 templates/
   index.html             UI template
