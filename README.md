@@ -5,7 +5,7 @@ An AI-powered application that generates EDM music in two ways: fast local song 
 ## Features
 
 - **Local Song Sketch Generation** – A corpus-trained sequence model learns from embedded EDM phrases to produce drums, bass lines, lead melodies, and song sections.
-- **True AI Music Generation** – Optional Hugging Face text-to-audio integration can render prompt-conditioned music with a real model such as `facebook/musicgen-small`.
+- **True AI Music Generation** – Optional Hugging Face text-to-audio integration can render prompt-conditioned music with a real model such as `facebook/musicgen-melody-large`.
 - **10 EDM Genres** – Classic Dubstep, Brostep, Riddim, Future Bass, House, Techno, Electro House, Trance, Drum & Bass, and Trap each have their own transition tables and synth characteristics.
 - **Audio Synthesis** – Pure Python (NumPy) synthesises 808-style kicks, electronic snares, hi-hats, wobble bass, and a generated lead synth layer.
 - **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the generated song data and waveform; play or download a WAV file.
@@ -81,7 +81,7 @@ To enable the true AI backend, install optional model dependencies and start the
 
 ```bash
 pip install transformers torch
-export TRUE_AI_MODEL=facebook/musicgen-small
+export TRUE_AI_MODEL=facebook/musicgen-melody-large
 python app.py
 ```
 

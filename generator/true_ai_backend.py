@@ -16,7 +16,7 @@ from typing import Any, Callable
 import numpy as np
 
 
-_DEFAULT_MODEL_NAME = "facebook/musicgen-small"
+_DEFAULT_MODEL_NAME = "facebook/musicgen-melody-large"
 _MIN_DURATION_SECONDS = 4.0
 _DEFAULT_SAMPLE_RATE = 32000
 _TOKENS_PER_SECOND = 50
