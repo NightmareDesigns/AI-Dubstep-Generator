@@ -1,21 +1,36 @@
 from pathlib import Path
+import re
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_build_script_prefers_python_before_py_launcher():
-    script = (REPO_ROOT / "build_windows_exe.bat").read_text().splitlines()
-    script_text = "\n".join(script)
+    script_text = (REPO_ROOT / "build_windows_exe.bat").read_text()
+    command_pairs = [
+        (
+            r'python\s+-c\s+"import PyInstaller"\s+>nul\s+2>nul',
+            r'if not errorlevel 1 python\s+-m PyInstaller --noconfirm "%SPEC%"',
+        ),
+        (
+            r'py\s+-3\s+-c\s+"import PyInstaller"\s+>nul\s+2>nul',
+            r'if not errorlevel 1 py\s+-3\s+-m PyInstaller --noconfirm "%SPEC%"',
+        ),
+        (
+            r'py\s+-c\s+"import PyInstaller"\s+>nul\s+2>nul',
+            r'if not errorlevel 1 py\s+-m PyInstaller --noconfirm "%SPEC%"',
+        ),
+    ]
 
-    python_index = script_text.index(
-        'if not errorlevel 1 python -m PyInstaller --noconfirm "%SPEC%"'
-    )
-    py3_index = script_text.index(
-        'if not errorlevel 1 py -3 -m PyInstaller --noconfirm "%SPEC%"'
-    )
-    py_index = script_text.index(
-        'if not errorlevel 1 py -m PyInstaller --noconfirm "%SPEC%"'
-    )
+    positions = []
+    for probe_pattern, build_pattern in command_pairs:
+        probe_match = re.search(probe_pattern, script_text)
+        build_match = re.search(build_pattern, script_text)
 
-    assert python_index < py3_index < py_index
+        assert probe_match is not None
+        assert build_match is not None
+        assert probe_match.start() < build_match.start()
+
+        positions.append(build_match.start())
+
+    assert positions == sorted(positions)
