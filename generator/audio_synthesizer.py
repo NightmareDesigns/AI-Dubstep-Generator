@@ -15,6 +15,8 @@ import numpy as np
 
 
 SAMPLE_RATE = 44100  # Hz
+BASE_LOWPASS_TAPS = 31
+LOWPASS_TAP_SPAN = 32
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +75,7 @@ def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.nd
 
     # Keep the FIR kernel fairly short for real-time rendering while allowing
     # a slightly narrower transition band at lower resonance settings.
-    taps = int(31 + (1.0 - resonance) * 32)
+    taps = int(BASE_LOWPASS_TAPS + (1.0 - resonance) * LOWPASS_TAP_SPAN)
     # If the chunk length is even, drop to the nearest smaller odd count so the
     # centered FIR kernel still fits inside the current segment.
     max_taps = len(signal) if len(signal) % 2 == 1 else len(signal) - 1
@@ -85,7 +87,8 @@ def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.nd
     if taps % 2 == 0:
         taps += 1
 
-    idx = np.arange(taps, dtype=np.float32) - (taps - 1) / 2
+    center_offset = (taps - 1) / 2
+    idx = np.arange(taps, dtype=np.float32) - center_offset
     kernel = 2 * normalized_cutoff * np.sinc(2 * normalized_cutoff * idx)
     kernel *= np.hamming(taps).astype(np.float32)
     kernel /= np.sum(kernel)
