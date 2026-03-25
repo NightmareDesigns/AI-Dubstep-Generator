@@ -28,6 +28,13 @@ An AI-powered application that generates EDM music in two ways: fast local song 
 1. Install dependencies: `pip install -r requirements.txt`
 2. Launch the desktop window: `python gui.py`
 3. Prefer double-clicking? Install the requirements once, then launch **`run_windows.pyw`** (no console window) or **`run_windows.bat`** from Explorer.
+4. For a packaged Windows build, use **`build_windows_exe.bat`** or run `py -m PyInstaller --noconfirm NightmareAIMusicMaker.spec`. The generated single-file app will be written to `dist/NightmareAIMusicMaker.exe`.
+
+### Ready-to-go EXE notes
+
+- The packaged desktop build bundles the Flask app, templates, static assets, NumPy synth engine, and pywebview window into one executable.
+- To keep the EXE offline-ready with **no extra downloads**, the packaged build exposes the local **Song Sketch** generator only.
+- The optional **True AI Audio** path remains available when running from source with extra model dependencies, but it is intentionally disabled in the packaged desktop EXE.
 
 ### Web server mode (all platforms)
 
@@ -106,6 +113,8 @@ tests/
   test_generator.py      Pytest test suite
   test_gui.py            Pytest tests for the GUI launcher
 requirements.txt
+NightmareAIMusicMaker.spec
+build_windows_exe.bat
 ```
 
 ## Running Tests
