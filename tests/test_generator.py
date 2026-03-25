@@ -396,6 +396,7 @@ class TestTrueAIMusicBackend:
     def test_defaults_to_musicgen_melody_large(self):
         backend = TrueAIMusicBackend(pipeline_factory=lambda *args, **kwargs: None)
         assert backend.model_name == "facebook/musicgen-melody-large"
+        assert backend.get_info()["offline_only"] is True
 
     def test_packaged_build_disables_true_ai(self, monkeypatch):
         monkeypatch.setattr("generator.true_ai_backend.sys.frozen", True, raising=False)
@@ -404,6 +405,40 @@ class TestTrueAIMusicBackend:
 
         assert not backend.is_available()
         assert "offline-ready" in backend.get_info()["error"]
+
+    def test_render_uses_local_files_only(self):
+        seen = {}
+
+        def fake_pipeline_factory(*args, **kwargs):
+            seen["args"] = args
+            seen["kwargs"] = kwargs
+
+            def fake_pipeline(prompt_text, **_kwargs):
+                return {
+                    "audio": [0.0, 0.1, -0.1, 0.0],
+                    "sampling_rate": 16000,
+                }
+
+            return fake_pipeline
+
+        backend = TrueAIMusicBackend(pipeline_factory=fake_pipeline_factory)
+
+        wav_bytes = backend.render_wav("offline test", 140, "C", "minor", "classic", 4)
+
+        assert wav_bytes[:4] == b"RIFF"
+        assert seen["args"] == ("text-to-audio",)
+        assert seen["kwargs"]["model"] == backend.model_name
+        assert seen["kwargs"]["local_files_only"] is True
+
+    def test_render_raises_runtime_error_when_model_is_not_available_locally(self):
+        backend = TrueAIMusicBackend(
+            pipeline_factory=lambda *args, **kwargs: (_ for _ in ()).throw(
+                OSError("missing local model files")
+            )
+        )
+
+        with pytest.raises(RuntimeError, match="offline-only"):
+            backend.render_wav("offline test", 140, "C", "minor", "classic", 4)
 
 
 # ---------------------------------------------------------------------------
