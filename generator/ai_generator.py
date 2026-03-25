@@ -217,6 +217,7 @@ _SECTION_ENERGY = {
 _STEP_JITTER_CHOICES = [0, 0, 0, 1, -1]
 _MIN_SONG_SECTIONS = 1
 _MAX_SONG_SECTIONS = 6
+_DEFAULT_BAR_ENERGY = 0.6
 
 _WOBBLE_RATES_BY_STYLE = {
     "classic": [1, 2, 4],
@@ -381,11 +382,12 @@ class EDMAIGenerator:
         scale = scale if scale in _SCALE_INTERVALS else "minor"
         style = style if style in _KICK_STATES else "classic"
 
-        drum_pattern = self._generate_drums(style, bars)
-        bass_pattern = self._generate_bass(key, scale, style, bars)
-        lead_pattern = self._generate_lead(key, scale, style, bars)
-        wobble_params = self._generate_wobble(style, bars, wobble_override)
         song_structure = self._generate_song_structure(style, bars)
+        bar_energies = song_structure["bar_energies"]
+        drum_pattern = self._generate_drums(style, bars, bar_energies)
+        bass_pattern = self._generate_bass(key, scale, style, bars, bar_energies)
+        lead_pattern = self._generate_lead(key, scale, style, bars, bar_energies)
+        wobble_params = self._generate_wobble(style, bars, bar_energies, wobble_override)
 
         return {
             "bpm": bpm,
@@ -397,7 +399,13 @@ class EDMAIGenerator:
             "generator": {
                 "type": "corpus_sequence_model",
                 "model_name": "embedded-edm-song-model",
+                "version": 2,
                 "trained_parts": ["drums", "bass", "lead", "arrangement"],
+                "features": [
+                    "energy_aware_arrangement",
+                    "section_conditioned_layers",
+                    "motif_variation",
+                ],
             },
             "song": song_structure,
             "drums": drum_pattern,
@@ -410,38 +418,127 @@ class EDMAIGenerator:
     # Drum generation
     # ------------------------------------------------------------------
 
-    def _generate_drums(self, style: str, bars: int) -> dict[str, list[list[int]]]:
+    def _generate_drums(
+        self,
+        style: str,
+        bars: int,
+        bar_energies: list[float],
+    ) -> dict[str, list[list[int]]]:
         return {
-            "kick": self._sample_drum_bars(style, "kick", bars),
-            "snare": self._sample_drum_bars(style, "snare", bars),
-            "hihat": self._sample_drum_bars(style, "hihat", bars),
+            "kick": self._sample_drum_bars(style, "kick", bars, bar_energies),
+            "snare": self._sample_drum_bars(style, "snare", bars, bar_energies),
+            "hihat": self._sample_drum_bars(style, "hihat", bars, bar_energies),
         }
 
-    def _sample_drum_bars(self, style: str, part: str, bars: int) -> list[list[int]]:
+    def _sample_drum_bars(
+        self,
+        style: str,
+        part: str,
+        bars: int,
+        bar_energies: list[float],
+    ) -> list[list[int]]:
         model = _drum_model(style, part)
         bitmasks = model.sample(bars, self._rng)
-        return [[(int(bitmask) >> (15 - i)) & 1 for i in range(16)] for bitmask in bitmasks]
+        return [
+            self._shape_drum_bar(
+                [(int(bitmask) >> (15 - i)) & 1 for i in range(16)],
+                self._bar_energy(bar_energies, index),
+                part,
+            )
+            for index, bitmask in enumerate(bitmasks)
+        ]
+
+    def _shape_drum_bar(self, bar: list[int], energy: float, part: str) -> list[int]:
+        shaped = list(bar)
+
+        if part == "kick":
+            if energy < 0.4:
+                shaped = [1 if index in {0, 8} and (bar[index] or index == 0) else 0 for index in range(16)]
+            elif energy >= 0.85:
+                shaped[0] = 1
+                shaped[8] = 1
+                if sum(shaped) < 4:
+                    for step in (6, 10, 14):
+                        shaped[step] = 1
+
+        elif part == "snare":
+            shaped[4] = 1
+            shaped[12] = 1
+            if energy < 0.4:
+                for step in range(16):
+                    if step not in {4, 12}:
+                        shaped[step] = 0
+            elif energy >= 0.85:
+                shaped[15] = 1
+
+        elif part == "hihat":
+            if energy < 0.4:
+                shaped = [1 if index in {2, 6, 10, 14} else 0 for index in range(16)]
+            elif energy >= 0.7:
+                for step in range(1, 16, 2):
+                    shaped[step] = 1
+                if energy >= 0.92:
+                    for step in (3, 7, 11, 15):
+                        shaped[step] = 1
+
+        return shaped
 
     # ------------------------------------------------------------------
     # Bass / lead generation
     # ------------------------------------------------------------------
 
-    def _generate_bass(self, key: str, scale: str, style: str, bars: int) -> dict[str, Any]:
+    def _generate_bass(
+        self,
+        key: str,
+        scale: str,
+        style: str,
+        bars: int,
+        bar_energies: list[float],
+    ) -> dict[str, Any]:
         root = _ROOT_NOTES[key]
         intervals = _SCALE_INTERVALS[scale]
         bar_tokens = _bass_model(style).sample(bars, self._rng)
-        notes = [self._materialize_note_bar(bar, root, intervals, 0, [0, 12]) for bar in bar_tokens]
+        notes = [
+            self._materialize_note_bar(
+                bar,
+                root,
+                intervals,
+                0,
+                [0, 12],
+                self._bar_energy(bar_energies, index),
+                "bass",
+            )
+            for index, bar in enumerate(bar_tokens)
+        ]
         return {
             "root_midi": root,
             "scale": scale,
             "notes": notes,
         }
 
-    def _generate_lead(self, key: str, scale: str, style: str, bars: int) -> dict[str, Any]:
+    def _generate_lead(
+        self,
+        key: str,
+        scale: str,
+        style: str,
+        bars: int,
+        bar_energies: list[float],
+    ) -> dict[str, Any]:
         root = _ROOT_NOTES[key] + 12
         intervals = _SCALE_INTERVALS[scale]
         bar_tokens = _lead_model(style).sample(bars, self._rng)
-        notes = [self._materialize_note_bar(bar, root, intervals, 12, [12, 24]) for bar in bar_tokens]
+        notes = [
+            self._materialize_note_bar(
+                bar,
+                root,
+                intervals,
+                12,
+                [12, 24],
+                self._bar_energy(bar_energies, index),
+                "lead",
+            )
+            for index, bar in enumerate(bar_tokens)
+        ]
         return {
             "root_midi": root,
             "scale": scale,
@@ -456,20 +553,93 @@ class EDMAIGenerator:
         intervals: list[int],
         transpose: int,
         octave_choices: list[int],
+        energy: float,
+        role: str,
     ) -> list[dict[str, Any]]:
         notes: list[dict[str, Any]] = []
+        low_octave_weight = max(0.2, 1.0 - (energy * 0.6))
+        high_octave_weight = max(0.2, 0.35 + (energy * 0.6))
         for step, degree, duration, velocity in tuple(template_bar):
             degree_idx = degree % len(intervals)
-            octave = self._rng.choices(octave_choices, weights=[0.75, 0.25], k=1)[0]
+            octave = self._rng.choices(
+                octave_choices,
+                weights=[low_octave_weight, high_octave_weight],
+                k=1,
+            )[0]
             note_step = max(0, min(15, int(step + self._rng.choice(_STEP_JITTER_CHOICES))))
             notes.append({
                 "step": note_step,
                 "midi": root + intervals[degree_idx] + transpose + octave,
-                "velocity": max(70, min(127, velocity + self._rng.randint(-6, 6))),
-                "duration": max(1, min(4, duration + self._rng.choice([0, 0, 1, -1]))),
+                "velocity": max(
+                    70,
+                    min(127, velocity + self._rng.randint(-6, 6) + int(round((energy - 0.5) * 18))),
+                ),
+                "duration": max(
+                    1,
+                    min(4, duration + self._rng.choice([0, 0, 1, -1]) + (1 if energy < 0.35 else 0)),
+                ),
             })
+        notes = self._shape_note_activity(
+            notes,
+            energy,
+            role,
+            root + intervals[0] + transpose + min(octave_choices),
+            root + intervals[min(4, len(intervals) - 1)] + transpose + max(octave_choices),
+        )
         notes.sort(key=lambda note: (note["step"], note["midi"]))
         return notes
+
+    def _shape_note_activity(
+        self,
+        notes: list[dict[str, Any]],
+        energy: float,
+        role: str,
+        anchor_midi: int,
+        accent_midi: int,
+    ) -> list[dict[str, Any]]:
+        shaped = [dict(note) for note in notes]
+
+        if role == "bass":
+            if energy < 0.4:
+                if shaped:
+                    anchor = dict(shaped[0])
+                    anchor.update({"step": 0, "duration": max(3, anchor["duration"]), "velocity": min(anchor["velocity"], 108)})
+                    return [anchor]
+                return [{"step": 0, "midi": anchor_midi, "velocity": 96, "duration": 4}]
+
+            if energy >= 0.85:
+                if not shaped:
+                    shaped = [{"step": 0, "midi": anchor_midi, "velocity": 112, "duration": 2}]
+                accent_step = min(15, max(shaped[-1]["step"] + 2, 12))
+                shaped.append({
+                    "step": accent_step,
+                    "midi": max(anchor_midi, accent_midi - 12),
+                    "velocity": min(127, shaped[-1]["velocity"] + 6),
+                    "duration": 1 if energy >= 0.95 else 2,
+                })
+            return shaped
+
+        if energy < 0.35:
+            if not shaped:
+                return []
+            anchor = dict(shaped[0])
+            anchor.update({"step": 0, "duration": max(3, anchor["duration"]), "velocity": max(70, anchor["velocity"] - 8)})
+            return [anchor]
+
+        if energy < 0.6 and len(shaped) > 2:
+            shaped = shaped[:2]
+
+        if energy >= 0.85:
+            if not shaped:
+                shaped = [{"step": 0, "midi": anchor_midi, "velocity": 92, "duration": 2}]
+            response_seed = shaped[-1]
+            shaped.append({
+                "step": min(15, max(response_seed["step"] + 2, 8)),
+                "midi": max(response_seed["midi"], accent_midi),
+                "velocity": min(127, response_seed["velocity"] + 6),
+                "duration": 1 if energy >= 0.95 else 2,
+            })
+        return shaped
 
     # ------------------------------------------------------------------
     # Song structure generation
@@ -503,7 +673,22 @@ class EDMAIGenerator:
             "type": "full_song",
             "sections": sections,
             "total_bars": bars,
+            "bar_energies": self._expand_section_energies(sections, bars),
         }
+
+    def _expand_section_energies(self, sections: list[dict[str, Any]], bars: int) -> list[float]:
+        bar_energies: list[float] = []
+        for section in sections:
+            bar_energies.extend([float(section["energy"])] * int(section["bars"]))
+        if len(bar_energies) < bars:
+            filler = bar_energies[-1] if bar_energies else _DEFAULT_BAR_ENERGY
+            bar_energies.extend([filler] * (bars - len(bar_energies)))
+        return bar_energies[:bars]
+
+    def _bar_energy(self, bar_energies: list[float], index: int) -> float:
+        if 0 <= index < len(bar_energies):
+            return float(bar_energies[index])
+        return _DEFAULT_BAR_ENERGY
 
     # ------------------------------------------------------------------
     # Wobble / LFO parameter generation
@@ -513,20 +698,25 @@ class EDMAIGenerator:
         self,
         style: str,
         bars: int,
+        bar_energies: list[float],
         override: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         wobble_list: list[dict[str, Any]] = []
         rates = _WOBBLE_RATES_BY_STYLE[style]
         override = override or {}
 
-        for _ in range(bars):
+        for index in range(bars):
+            energy = self._bar_energy(bar_energies, index)
+            rate_index = min(len(rates) - 1, int(round(energy * (len(rates) - 1))))
+            cutoff_floor = int(80 + (energy * 260))
+            cutoff_ceiling = int(1800 + (energy * 2400))
             wobble_params = {
-                "rate": override.get("rate", self._rng.choice(rates)),
-                "depth": round(override.get("depth", self._rng.uniform(0.4, 1.0)), 2),
-                "resonance": round(override.get("resonance", self._rng.uniform(0.5, 0.95)), 2),
+                "rate": override.get("rate", rates[rate_index]),
+                "depth": round(override.get("depth", self._rng.uniform(0.35 + (energy * 0.15), 0.7 + (energy * 0.25))), 2),
+                "resonance": round(override.get("resonance", self._rng.uniform(0.45 + (energy * 0.2), 0.7 + (energy * 0.25))), 2),
                 "shape": override.get("shape", self._rng.choice(_WOBBLE_SHAPES)),
-                "cutoff_min": override.get("cutoff_min", self._rng.randint(80, 400)),
-                "cutoff_max": override.get("cutoff_max", self._rng.randint(1200, 4000)),
+                "cutoff_min": override.get("cutoff_min", self._rng.randint(cutoff_floor, cutoff_floor + 160)),
+                "cutoff_max": override.get("cutoff_max", self._rng.randint(cutoff_ceiling, cutoff_ceiling + 500)),
             }
             wobble_list.append(wobble_params)
         return wobble_list

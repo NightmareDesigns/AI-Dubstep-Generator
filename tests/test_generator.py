@@ -170,16 +170,46 @@ class TestEDMAIGenerator:
         song = result["song"]
         assert song["type"] == "full_song"
         assert song["total_bars"] == 6
+        assert len(song["bar_energies"]) == 6
         assert sum(section["bars"] for section in song["sections"]) == 6
         for section in song["sections"]:
             assert section["bars"] >= 1
             assert 0.0 <= section["energy"] <= 1.0
+        expanded = []
+        for section in song["sections"]:
+            expanded.extend([section["energy"]] * section["bars"])
+        assert song["bar_energies"] == expanded
 
     def test_generator_metadata(self):
         result = self.gen.generate()
         generator = result["generator"]
         assert generator["type"] == "corpus_sequence_model"
+        assert generator["version"] == 2
         assert "lead" in generator["trained_parts"]
+        assert "energy_aware_arrangement" in generator["features"]
+
+    def test_high_energy_bars_are_more_active(self):
+        result = self.gen.generate(style="classic", bars=8)
+        energies = result["song"]["bar_energies"]
+        activity = []
+        for bar_index, energy in enumerate(energies):
+            drum_hits = (
+                sum(result["drums"]["kick"][bar_index])
+                + sum(result["drums"]["snare"][bar_index])
+                + sum(result["drums"]["hihat"][bar_index])
+            )
+            melodic_notes = (
+                len(result["bass"]["notes"][bar_index])
+                + len(result["lead"]["notes"][bar_index])
+            )
+            activity.append((energy, drum_hits + melodic_notes))
+
+        low_energy_activity = [score for energy, score in activity if energy <= 0.35]
+        high_energy_activity = [score for energy, score in activity if energy >= 0.9]
+
+        assert low_energy_activity
+        assert high_energy_activity
+        assert min(high_energy_activity) > max(low_energy_activity)
 
     def test_wobble_structure(self):
         result = self.gen.generate(bars=4)
@@ -195,6 +225,17 @@ class TestEDMAIGenerator:
             assert 0.0 <= w["depth"] <= 1.0
             assert 0.0 <= w["resonance"] <= 1.0
             assert w["cutoff_min"] < w["cutoff_max"]
+
+    def test_high_energy_bars_get_faster_wobble(self):
+        result = self.gen.generate(style="brostep", bars=8)
+        energies = result["song"]["bar_energies"]
+        low_energy_rates = [w["rate"] for w, energy in zip(result["wobble"], energies) if energy <= 0.35]
+        high_energy_rates = [w["rate"] for w, energy in zip(result["wobble"], energies) if energy >= 0.9]
+
+        assert low_energy_rates
+        assert high_energy_rates
+        assert max(high_energy_rates) >= max(low_energy_rates)
+        assert min(high_energy_rates) >= min(low_energy_rates)
 
     def test_reproducibility_with_seed(self):
         g1 = EDMAIGenerator(seed=7)
