@@ -86,6 +86,10 @@ The web UI now includes a **Generation Mode** selector:
 - **Song Sketch (local)** keeps the current fast local generator.
 - **True AI Audio** prepares a request for a real text-to-audio model and renders it through `/render`.
 
+The true-AI backend is **offline-only**: it will only use a model that already
+exists in your local Hugging Face cache or a local path that you provide via
+`TRUE_AI_MODEL`. It will not download model weights at runtime.
+
 To enable the true AI backend, install optional model dependencies and start the app:
 
 ```bash
@@ -94,7 +98,10 @@ export TRUE_AI_MODEL=facebook/musicgen-melody-large
 python app.py
 ```
 
-If those optional dependencies are not installed, the app will keep the local song-sketch mode available and report the true-AI backend as unavailable through `/info` and the UI.
+If those optional dependencies are not installed, or the configured model is not
+available locally, the app will keep the local song-sketch mode available and
+report the true-AI backend as unavailable instead of trying to download model
+files at runtime.
 
 ## Project Structure
 

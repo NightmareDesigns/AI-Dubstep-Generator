@@ -21,6 +21,11 @@ _DEFAULT_MODEL_NAME = "facebook/musicgen-melody-large"
 _MIN_DURATION_SECONDS = 4.0
 _DEFAULT_SAMPLE_RATE = 32000
 _TOKENS_PER_SECOND = 50
+_OFFLINE_ONLY_ERROR = (
+    "True AI audio is offline-only and will not download model files. "
+    "Pre-download the configured model into the local cache or set "
+    "TRUE_AI_MODEL to a local model path."
+)
 
 
 def _audio_array_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
@@ -90,6 +95,7 @@ class TrueAIMusicBackend:
             "type": "true_ai_audio",
             "provider": "huggingface_transformers",
             "model_name": self.model_name,
+            "offline_only": True,
             "available": self.is_available(),
             "error": self._error,
         }
@@ -170,11 +176,15 @@ class TrueAIMusicBackend:
             raise RuntimeError(self._error or "True AI backend is unavailable")
         if self._pipeline is None:
             assert self._pipeline_factory is not None
-            self._pipeline = self._pipeline_factory(
-                "text-to-audio",
-                model=self.model_name,
-                device=self._device,
-            )
+            try:
+                self._pipeline = self._pipeline_factory(
+                    "text-to-audio",
+                    model=self.model_name,
+                    device=self._device,
+                    local_files_only=True,
+                )
+            except (OSError, ValueError) as exc:
+                raise RuntimeError(_OFFLINE_ONLY_ERROR) from exc
         return self._pipeline
 
     def render_wav(
