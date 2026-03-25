@@ -698,7 +698,9 @@ class EDMAIGenerator:
         for section in sections:
             bar_energies.extend([float(section["energy"])] * int(section["bars"]))
         if len(bar_energies) != bars:
-            raise ValueError("song structure energies do not match requested bar count")
+            raise ValueError(
+                f"song structure energies ({len(bar_energies)}) do not match requested bar count ({bars})"
+            )
         return bar_energies
 
     def _bar_energy(self, bar_energies: list[float], index: int) -> float:
