@@ -71,8 +71,11 @@ def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.nd
     resonance = max(0.0, min(resonance, 1.0))
     normalized_cutoff = cutoff / SAMPLE_RATE
 
+    # Keep the FIR kernel fairly short for real-time rendering while allowing
+    # a slightly narrower transition band at lower resonance settings.
     taps = int(31 + (1.0 - resonance) * 32)
-    taps = min(taps, len(signal) if len(signal) % 2 == 1 else max(1, len(signal) - 1))
+    max_taps = len(signal) if len(signal) % 2 == 1 else max(1, len(signal) - 1)
+    taps = min(taps, max_taps)
     taps = max(1, taps)
     if taps % 2 == 0:
         taps += 1
