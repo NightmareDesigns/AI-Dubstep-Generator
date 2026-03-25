@@ -214,6 +214,10 @@ _SECTION_ENERGY = {
     "outro": 0.2,
 }
 
+_STEP_JITTER_CHOICES = [0, 0, 0, 1, -1]
+_MIN_SONG_SECTIONS = 2
+_MAX_SONG_SECTIONS = 6
+
 _WOBBLE_RATES_BY_STYLE = {
     "classic": [1, 2, 4],
     "brostep": [4, 8, 16],
@@ -455,7 +459,7 @@ class EDMAIGenerator:
         for step, degree, duration, velocity in tuple(template_bar):
             degree_idx = degree % len(intervals)
             octave = self._rng.choices(octave_choices, weights=[0.75, 0.25], k=1)[0]
-            note_step = max(0, min(15, int(step + self._rng.choice([0, 0, 0, 1, -1]))))
+            note_step = max(0, min(15, int(step + self._rng.choice(_STEP_JITTER_CHOICES))))
             notes.append({
                 "step": note_step,
                 "midi": root + intervals[degree_idx] + transpose + octave,
@@ -470,7 +474,7 @@ class EDMAIGenerator:
     # ------------------------------------------------------------------
 
     def _generate_song_structure(self, style: str, bars: int) -> dict[str, Any]:
-        section_count = max(2, min(6, bars))
+        section_count = max(_MIN_SONG_SECTIONS, min(_MAX_SONG_SECTIONS, bars))
         labels = [str(label) for label in _arrangement_model(style).sample(section_count, self._rng)]
         hints = [_SECTION_BAR_HINTS[label] for label in labels]
         total_hint = sum(hints)
