@@ -388,6 +388,17 @@ class TestDubstepSynthesizer:
 
 
 # ---------------------------------------------------------------------------
+# True AI backend tests
+# ---------------------------------------------------------------------------
+
+class TestTrueAIMusicBackend:
+
+    def test_defaults_to_musicgen_melody_large(self):
+        backend = TrueAIMusicBackend(pipeline_factory=lambda *args, **kwargs: None)
+        assert backend.model_name == "facebook/musicgen-melody-large"
+
+
+# ---------------------------------------------------------------------------
 # Flask app integration tests
 # ---------------------------------------------------------------------------
 
