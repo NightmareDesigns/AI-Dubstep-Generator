@@ -74,6 +74,8 @@ def _lowpass(signal: np.ndarray, cutoff: float, resonance: float = 0.5) -> np.nd
     # Keep the FIR kernel fairly short for real-time rendering while allowing
     # a slightly narrower transition band at lower resonance settings.
     taps = int(31 + (1.0 - resonance) * 32)
+    # If the chunk length is even, drop to the nearest smaller odd count so the
+    # centered FIR kernel still fits inside the current segment.
     max_taps = len(signal) if len(signal) % 2 == 1 else len(signal) - 1
     taps = min(taps, max_taps)
 
