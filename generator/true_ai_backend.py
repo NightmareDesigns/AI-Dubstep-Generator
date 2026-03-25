@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 import wave
 from typing import Any, Callable
 
@@ -53,6 +54,13 @@ class TrueAIMusicBackend:
         self._pipeline = None
         self._device = -1
         self._error: str | None = None
+
+        if getattr(sys, "frozen", False):
+            self._error = (
+                "True AI audio is disabled in the packaged desktop app so the "
+                "bundled build stays offline-ready with no extra downloads."
+            )
+            return
 
         if self._pipeline_factory is None:
             try:

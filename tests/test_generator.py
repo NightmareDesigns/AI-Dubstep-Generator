@@ -397,6 +397,14 @@ class TestTrueAIMusicBackend:
         backend = TrueAIMusicBackend(pipeline_factory=lambda *args, **kwargs: None)
         assert backend.model_name == "facebook/musicgen-melody-large"
 
+    def test_packaged_build_disables_true_ai(self, monkeypatch):
+        monkeypatch.setattr("generator.true_ai_backend.sys.frozen", True, raising=False)
+
+        backend = TrueAIMusicBackend(pipeline_factory=lambda *args, **kwargs: None)
+
+        assert not backend.is_available()
+        assert "offline-ready" in backend.get_info()["error"]
+
 
 # ---------------------------------------------------------------------------
 # Flask app integration tests
@@ -442,6 +450,16 @@ class TestFlaskApp:
         assert data["default_mode"] == "song_sketch"
         assert data["song_sketch"]["type"] == "corpus_sequence_model"
         assert "true_ai" in data
+
+    def test_info_endpoint_uses_packaged_resource_paths(self, monkeypatch):
+        import app as flask_app
+
+        monkeypatch.setattr(flask_app.sys, "frozen", True, raising=False)
+        monkeypatch.setattr(flask_app.sys, "_MEIPASS", "/tmp/frozen-app", raising=False)
+
+        resource_root = flask_app._resource_root()
+
+        assert str(resource_root) == "/tmp/frozen-app"
 
     def test_generate_true_ai_descriptor_when_backend_available(self, monkeypatch):
         monkeypatch.setattr(self.flask_app, "_true_ai_backend", _AvailableTrueAIBackend())

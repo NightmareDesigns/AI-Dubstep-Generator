@@ -14,6 +14,7 @@ const keySelect     = document.getElementById("key");
 const scaleSelect   = document.getElementById("scale");
 const styleSelect   = document.getElementById("style");
 const generationModeSelect = document.getElementById("generation-mode");
+const trueAIOption = generationModeSelect.querySelector('option[value="true_ai"]');
 const promptInput   = document.getElementById("prompt");
 const modeDisplay   = document.getElementById("mode-display");
 const btnGenerate   = document.getElementById("btn-generate");
@@ -143,6 +144,12 @@ async function loadBackendInfo() {
 
     backendInfo = await response.json();
     const trueAI = backendInfo.true_ai || {};
+    if (trueAIOption) {
+      trueAIOption.disabled = !trueAI.available;
+    }
+    if (!trueAI.available && generationModeSelect.value === "true_ai") {
+      generationModeSelect.value = "song_sketch";
+    }
     if (modeDisplay) {
       modeDisplay.textContent = trueAI.available
         ? `True AI ready: ${trueAI.model_name}`

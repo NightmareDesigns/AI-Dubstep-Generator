@@ -10,6 +10,8 @@ POST /render     → Render a song sketch or true-AI audio request to WAV
 """
 
 import io
+import sys
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
 
@@ -17,7 +19,20 @@ from generator.ai_generator import EDMAIGenerator
 from generator.audio_synthesizer import DubstepSynthesizer
 from generator.true_ai_backend import TrueAIMusicBackend
 
-app = Flask(__name__)
+
+def _resource_root() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
+
+
+_APP_ROOT = _resource_root()
+
+app = Flask(
+    __name__,
+    template_folder=str(_APP_ROOT / "templates"),
+    static_folder=str(_APP_ROOT / "static"),
+)
 
 _synthesizer = DubstepSynthesizer()
 _true_ai_backend = TrueAIMusicBackend()
