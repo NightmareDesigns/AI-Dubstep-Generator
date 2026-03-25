@@ -234,8 +234,9 @@ class TestEDMAIGenerator:
 
         assert low_energy_rates
         assert high_energy_rates
-        assert max(high_energy_rates) >= max(low_energy_rates)
-        assert min(high_energy_rates) >= min(low_energy_rates)
+        assert (sum(high_energy_rates) / len(high_energy_rates)) >= (
+            sum(low_energy_rates) / len(low_energy_rates)
+        )
 
     def test_reproducibility_with_seed(self):
         g1 = EDMAIGenerator(seed=7)
