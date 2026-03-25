@@ -15,8 +15,12 @@ import socket
 import sys
 import threading
 import time
+import webbrowser
 
-import webview
+try:
+    import webview
+except Exception:  # noqa: BLE001
+    webview = None
 
 from app import app as flask_app
 
@@ -74,6 +78,17 @@ def _show_error_dialog(message: str) -> None:
     print(message, file=sys.stderr)
 
 
+def _launch_browser(url: str) -> None:
+    """Open the app in the default browser when pywebview is unavailable."""
+    if webbrowser.open(url):
+        return
+
+    raise RuntimeError(
+        "Unable to open the app in your default browser. "
+        "Install pywebview for the native desktop window."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -91,9 +106,15 @@ def main() -> None:
     # Wait until Flask is ready before the window tries to load.
     _wait_for_flask(port)
 
+    url = f"http://127.0.0.1:{port}/"
+
+    if webview is None:
+        _launch_browser(url)
+        return
+
     webview.create_window(
         title=APP_TITLE,
-        url=f"http://127.0.0.1:{port}/",
+        url=url,
         width=1040,
         height=860,
         resizable=True,
