@@ -218,6 +218,12 @@ _STEP_JITTER_CHOICES = [0, 0, 0, 1, -1]
 _MIN_SONG_SECTIONS = 1
 _MAX_SONG_SECTIONS = 6
 _DEFAULT_BAR_ENERGY = 0.6
+_VELOCITY_JITTER_MIN = -6
+_VELOCITY_JITTER_MAX = 6
+_ENERGY_VELOCITY_CENTER = 0.5
+_ENERGY_VELOCITY_RANGE = 18
+_LOW_ENERGY_BASS_MAX_VELOCITY = 108
+_OCTAVE_SEMITONES = 12
 
 _WOBBLE_RATES_BY_STYLE = {
     "classic": [1, 2, 4],
@@ -453,7 +459,9 @@ class EDMAIGenerator:
 
         if part == "kick":
             if energy < 0.4:
-                shaped = [1 if index in {0, 8} and (bar[index] or index == 0) else 0 for index in range(16)]
+                shaped = [0] * 16
+                shaped[0] = 1
+                shaped[8] = 1 if bar[8] else 0
             elif energy >= 0.85:
                 shaped[0] = 1
                 shaped[8] = 1
@@ -572,7 +580,12 @@ class EDMAIGenerator:
                 "midi": root + intervals[degree_idx] + transpose + octave,
                 "velocity": max(
                     70,
-                    min(127, velocity + self._rng.randint(-6, 6) + int(round((energy - 0.5) * 18))),
+                    min(
+                        127,
+                        velocity
+                        + self._rng.randint(_VELOCITY_JITTER_MIN, _VELOCITY_JITTER_MAX)
+                        + int(round((energy - _ENERGY_VELOCITY_CENTER) * _ENERGY_VELOCITY_RANGE)),
+                    ),
                 ),
                 "duration": max(
                     1,
@@ -603,7 +616,11 @@ class EDMAIGenerator:
             if energy < 0.4:
                 if shaped:
                     anchor = dict(shaped[0])
-                    anchor.update({"step": 0, "duration": max(3, anchor["duration"]), "velocity": min(anchor["velocity"], 108)})
+                    anchor.update({
+                        "step": 0,
+                        "duration": max(3, anchor["duration"]),
+                        "velocity": min(anchor["velocity"], _LOW_ENERGY_BASS_MAX_VELOCITY),
+                    })
                     return [anchor]
                 return [{"step": 0, "midi": anchor_midi, "velocity": 96, "duration": 4}]
 
@@ -613,7 +630,7 @@ class EDMAIGenerator:
                 accent_step = min(15, max(shaped[-1]["step"] + 2, 12))
                 shaped.append({
                     "step": accent_step,
-                    "midi": max(anchor_midi, accent_midi - 12),
+                    "midi": max(anchor_midi, accent_midi - _OCTAVE_SEMITONES),
                     "velocity": min(127, shaped[-1]["velocity"] + 6),
                     "duration": 1 if energy >= 0.95 else 2,
                 })
@@ -680,10 +697,9 @@ class EDMAIGenerator:
         bar_energies: list[float] = []
         for section in sections:
             bar_energies.extend([float(section["energy"])] * int(section["bars"]))
-        if len(bar_energies) < bars:
-            filler = bar_energies[-1] if bar_energies else _DEFAULT_BAR_ENERGY
-            bar_energies.extend([filler] * (bars - len(bar_energies)))
-        return bar_energies[:bars]
+        if len(bar_energies) != bars:
+            raise ValueError("song structure energies do not match requested bar count")
+        return bar_energies
 
     def _bar_energy(self, bar_energies: list[float], index: int) -> float:
         if 0 <= index < len(bar_energies):
