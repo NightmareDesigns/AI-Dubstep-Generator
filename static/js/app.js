@@ -129,7 +129,7 @@ djTempo.addEventListener("input", () => {
 // ── Generate ────────────────────────────────────────────────────────────────
 
 btnGenerate.addEventListener("click", async () => {
-  setStatus("Generating pattern…", "busy");
+  setStatus("Generating song…", "busy");
   btnGenerate.disabled = true;
 
   try {
@@ -174,7 +174,11 @@ btnGenerate.addEventListener("click", async () => {
 
     btnPlay.disabled     = false;
     btnDownload.disabled = false;
-    setStatus(`Pattern generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM`, "success");
+    const sectionCount = currentPattern.song?.sections?.length || 0;
+    setStatus(
+      `Song generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM with ${sectionCount} sections`,
+      "success",
+    );
 
   } catch (err) {
     setStatus(`Error: ${err.message}`, "error");

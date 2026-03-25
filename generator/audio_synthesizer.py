@@ -185,6 +185,15 @@ def _synth_bass_note(
     return _adsr(filtered, attack=0.01, decay=0.08, sustain=0.8, release=0.1)
 
 
+def _synth_lead_note(midi_note: int, dur_steps: int, step_dur: float) -> np.ndarray:
+    """Synthesise a bright lead note for the generated song melody."""
+    dur = dur_steps * step_dur
+    freq = _midi_to_hz(midi_note)
+    sig = _square(freq, dur, amp=0.22) + _sine(freq * 2, dur, amp=0.12)
+    filtered = _lowpass(sig, cutoff=4200, resonance=0.25)
+    return _adsr(filtered, attack=0.01, decay=0.05, sustain=0.55, release=0.12)
+
+
 # ---------------------------------------------------------------------------
 # Pattern → audio renderer
 # ---------------------------------------------------------------------------
@@ -209,6 +218,7 @@ class DubstepSynthesizer:
         steps    = pattern["steps_per_bar"]
         drums    = pattern["drums"]
         bass     = pattern["bass"]
+        lead     = pattern.get("lead", {"notes": [[] for _ in range(bars)]})
         wobble   = pattern["wobble"]
 
         # Duration of one 16th-note step (seconds)
@@ -253,6 +263,20 @@ class DubstepSynthesizer:
                 velocity   = note["velocity"] / 127.0
                 step_offset = bar_offset + int(SAMPLE_RATE * step_dur * step)
                 sig = _synth_bass_note(midi, duration, step_dur, w) * velocity * 0.6
+                end = step_offset + len(sig)
+                mix[step_offset:min(end, total_samples)] += sig[:min(len(sig), total_samples - step_offset)]
+
+        # ---- lead melody ----
+        lead_notes = lead.get("notes", [])
+        for bar_idx in range(min(bars, len(lead_notes))):
+            bar_offset = int(SAMPLE_RATE * bar_dur * bar_idx)
+            for note in lead_notes[bar_idx]:
+                step = note["step"]
+                midi = note["midi"]
+                duration = note["duration"]
+                velocity = note["velocity"] / 127.0
+                step_offset = bar_offset + int(SAMPLE_RATE * step_dur * step)
+                sig = _synth_lead_note(midi, duration, step_dur) * velocity * 0.35
                 end = step_offset + len(sig)
                 mix[step_offset:min(end, total_samples)] += sig[:min(len(sig), total_samples - step_offset)]
 

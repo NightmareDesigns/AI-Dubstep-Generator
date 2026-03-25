@@ -29,7 +29,7 @@ class TestEDMAIGenerator:
     def test_generate_required_keys(self):
         result = self.gen.generate()
         for key in ("bpm", "key", "scale", "style", "bars", "steps_per_bar",
-                    "drums", "bass", "wobble"):
+                    "generator", "song", "drums", "bass", "lead", "wobble"):
             assert key in result, f"Missing key: {key}"
 
     def test_generate_bpm_range(self):
@@ -95,6 +95,36 @@ class TestEDMAIGenerator:
                 assert "duration" in note
                 assert 0 <= note["step"] < 16
                 assert 0 < note["velocity"] <= 127
+
+    def test_lead_structure(self):
+        result = self.gen.generate(bars=3)
+        lead = result["lead"]
+        assert lead["instrument"] == "lead_synth"
+        assert len(lead["notes"]) == 3
+        for bar_notes in lead["notes"]:
+            for note in bar_notes:
+                assert "step" in note
+                assert "midi" in note
+                assert "velocity" in note
+                assert "duration" in note
+                assert 0 <= note["step"] < 16
+                assert 0 < note["velocity"] <= 127
+
+    def test_song_structure(self):
+        result = self.gen.generate(bars=6)
+        song = result["song"]
+        assert song["type"] == "full_song"
+        assert song["total_bars"] == 6
+        assert sum(section["bars"] for section in song["sections"]) == 6
+        for section in song["sections"]:
+            assert section["bars"] >= 1
+            assert 0.0 <= section["energy"] <= 1.0
+
+    def test_generator_metadata(self):
+        result = self.gen.generate()
+        generator = result["generator"]
+        assert generator["type"] == "corpus_sequence_model"
+        assert "lead" in generator["trained_parts"]
 
     def test_wobble_structure(self):
         result = self.gen.generate(bars=4)
@@ -286,6 +316,9 @@ class TestFlaskApp:
         assert data["bpm"] == 140
         assert data["key"] == "A"
         assert data["bars"] == 2
+        assert data["generator"]["type"] == "corpus_sequence_model"
+        assert "sections" in data["song"]
+        assert "notes" in data["lead"]
 
     def test_generate_defaults(self):
         rv = self.client.post("/generate", json={})
