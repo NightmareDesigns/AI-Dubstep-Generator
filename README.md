@@ -26,7 +26,7 @@ An AI-powered application that generates EDM music in two ways: fast local song 
 ### Windows desktop app (recommended)
 
 1. Install dependencies: `pip install -r requirements.txt`
-2. Launch the desktop app: `python gui.py`
+2. Launch the desktop window: `python gui.py`
 3. Prefer double-clicking? Install the requirements once, then launch **`run_windows.pyw`** (no console window) or **`run_windows.bat`** from Explorer.
 4. If `pywebview` is available, the app opens in a native desktop window. If not, it falls back to your default browser automatically.
 5. Python 3.14 can currently skip `pywebview` because its Windows dependency chain is still catching up there. For the native desktop window, use Python 3.13 or the packaged EXE.

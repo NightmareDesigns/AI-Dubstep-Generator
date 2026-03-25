@@ -19,7 +19,7 @@ import webbrowser
 
 try:
     import webview
-except Exception:  # noqa: BLE001
+except ImportError:
     webview = None
 
 from app import app as flask_app
