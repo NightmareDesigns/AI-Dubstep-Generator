@@ -12,11 +12,20 @@
     <!-- Header -->
     <header class="app-header">
       <h1>🎛️ Nightmare AI Music Maker</h1>
-      <p class="subtitle">Powered by a corpus-trained music AI – generate full EDM song ideas in seconds</p>
+      <p class="subtitle">Generate local EDM song sketches or switch to a true AI music model for audio-first generation</p>
     </header>
 
     <!-- Controls panel -->
     <section class="controls-panel" aria-label="Generator Controls">
+      <div class="control-group">
+        <label for="generation-mode">Generation Mode</label>
+        <select id="generation-mode">
+          <option value="song_sketch">Song Sketch (local)</option>
+          <option value="true_ai">True AI Audio</option>
+        </select>
+        <span class="value-display mode-display" id="mode-display">Loading backends…</span>
+      </div>
+
       <div class="control-group">
         <label for="bpm">BPM</label>
         <input type="range" id="bpm" min="80" max="180" value="140" step="1" />
@@ -69,6 +78,11 @@
         <label for="bars">Bars</label>
         <input type="range" id="bars" min="1" max="16" value="4" step="1" />
         <span class="value-display" id="bars-display">4</span>
+      </div>
+
+      <div class="control-group prompt-group">
+        <label for="prompt">True AI Prompt</label>
+        <textarea id="prompt" rows="3" placeholder="Describe the music you want the real AI model to generate. Example: cinematic melodic dubstep with a female vocal hook and huge drops."></textarea>
       </div>
     </section>
 
@@ -126,7 +140,7 @@
 
     <!-- Action buttons -->
     <section class="action-buttons">
-      <button id="btn-generate" class="btn btn-primary">🎲 Generate Song</button>
+      <button id="btn-generate" class="btn btn-primary">🎲 Generate</button>
       <button id="btn-play"     class="btn btn-secondary" disabled>▶ Play</button>
       <button id="btn-stop"     class="btn btn-secondary" disabled>■ Stop</button>
       <button id="btn-download" class="btn btn-secondary" disabled>⬇ Download WAV</button>
@@ -164,7 +178,7 @@
 
     <!-- Status bar -->
     <div id="status-bar" class="status-bar" aria-live="polite">
-      Press <strong>Generate Song</strong> to start.
+      Press <strong>Generate</strong> to start.
     </div>
 
     <!-- Pattern visualizer -->
@@ -184,7 +198,7 @@
     <!-- Pattern details accordion -->
     <section class="details-section">
       <details>
-        <summary>Song Data (JSON)</summary>
+        <summary>Generation Data (JSON)</summary>
         <pre id="pattern-json" class="json-output">—</pre>
       </details>
     </section>

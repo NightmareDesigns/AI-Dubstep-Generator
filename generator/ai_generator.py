@@ -215,7 +215,7 @@ _SECTION_ENERGY = {
 }
 
 _STEP_JITTER_CHOICES = [0, 0, 0, 1, -1]
-_MIN_SONG_SECTIONS = 2
+_MIN_SONG_SECTIONS = 1
 _MAX_SONG_SECTIONS = 6
 
 _WOBBLE_RATES_BY_STYLE = {
@@ -239,6 +239,8 @@ _WOBBLE_SHAPES = ["sine", "square", "sawtooth", "triangle"]
 # ---------------------------------------------------------------------------
 
 def _weighted_choice(counter: Counter[Hashable], rng: random.Random) -> Hashable:
+    if not counter:
+        raise ValueError("weighted choice requires at least one candidate")
     population = list(counter.keys())
     weights = list(counter.values())
     return rng.choices(population, weights=weights, k=1)[0]
@@ -267,7 +269,7 @@ class CorpusSequenceModel:
         if length <= 0:
             return []
 
-        current = _weighted_choice(self._starts or self._fallback, rng)
+        current = _weighted_choice(self._starts if self._starts else self._fallback, rng)
         output = [current]
         for _ in range(length - 1):
             transitions = self._transitions.get(current) or self._fallback

@@ -110,12 +110,14 @@ html, body {
 }
 
 .control-group select,
+.control-group textarea,
 .control-group input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
 }
 
-.control-group select {
+.control-group select,
+.control-group textarea {
   background: var(--bg-grid);
   color: var(--text);
   border: 1px solid var(--border);
@@ -126,13 +128,36 @@ html, body {
   outline: none;
   transition: border-color var(--transition);
 }
-.control-group select:focus { border-color: var(--accent); }
+.control-group textarea {
+  min-height: 88px;
+  resize: vertical;
+  font-family: inherit;
+}
+.control-group select:focus,
+.control-group textarea:focus { border-color: var(--accent); }
+
+.prompt-group {
+  grid-column: 1 / -1;
+}
 
 .value-display {
   font-weight: 700;
   color: var(--accent-light);
   font-size: .9rem;
   text-align: center;
+}
+
+.mode-display {
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.mode-display.mode-available {
+  color: #86efac;
+}
+
+.mode-display.mode-unavailable {
+  color: #fca5a5;
 }
 
 /* ---- buttons ---- */
@@ -246,6 +271,20 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: .5rem;
+}
+
+.true-ai-summary {
+  background: var(--bg-grid);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.true-ai-summary strong {
+  color: var(--accent-light);
 }
 
 .pattern-row {

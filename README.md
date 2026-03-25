@@ -1,10 +1,11 @@
 # Nightmare AI Music Maker
 
-An AI-powered application that generates EDM music and song sketches using a lightweight corpus-trained sequence model and real-time audio synthesis. Supports multiple genres including dubstep, riddim, house, techno, trance, drum & bass, trap, and electro.
+An AI-powered application that generates EDM music in two ways: fast local song sketches using a lightweight corpus-trained sequence model, and an optional true AI audio path backed by a real text-to-audio model integration. Supports multiple genres including dubstep, riddim, house, techno, trance, drum & bass, trap, and electro.
 
 ## Features
 
-- **AI Song Generation** – A corpus-trained sequence model learns from embedded EDM phrases to produce drums, bass lines, lead melodies, and song sections.
+- **Local Song Sketch Generation** – A corpus-trained sequence model learns from embedded EDM phrases to produce drums, bass lines, lead melodies, and song sections.
+- **True AI Music Generation** – Optional Hugging Face text-to-audio integration can render prompt-conditioned music with a real model such as `facebook/musicgen-small`.
 - **10 EDM Genres** – Classic Dubstep, Brostep, Riddim, Future Bass, House, Techno, Electro House, Trance, Drum & Bass, and Trap each have their own transition tables and synth characteristics.
 - **Audio Synthesis** – Pure Python (NumPy) synthesises 808-style kicks, electronic snares, hi-hats, wobble bass, and a generated lead synth layer.
 - **Interactive UI** – Control BPM (80–180), key, scale, style, and bar count; view the generated song data and waveform; play or download a WAV file.
@@ -45,8 +46,9 @@ python app.py
 | Method | Path        | Description                                        |
 |--------|-------------|----------------------------------------------------|
 | GET    | `/`         | Serve the web UI                                   |
-| POST   | `/generate` | Generate a song sketch (JSON body → JSON response) |
-| POST   | `/render`   | Render a generated song or params to a WAV file    |
+| GET    | `/info`     | Report local and true-AI backend availability      |
+| POST   | `/generate` | Generate a song sketch or true-AI request metadata |
+| POST   | `/render`   | Render a local sketch or true-AI request to WAV    |
 
 ### `/generate` example
 
@@ -68,6 +70,23 @@ python app.py
   "wobble": [{ "rate": 4, "depth": 0.87, "resonance": 0.72 }] }
 ```
 
+### True AI mode
+
+The web UI now includes a **Generation Mode** selector:
+
+- **Song Sketch (local)** keeps the current fast local generator.
+- **True AI Audio** prepares a request for a real text-to-audio model and renders it through `/render`.
+
+To enable the true AI backend, install optional model dependencies and start the app:
+
+```bash
+pip install transformers torch
+export TRUE_AI_MODEL=facebook/musicgen-small
+python app.py
+```
+
+If those optional dependencies are not installed, the app will keep the local song-sketch mode available and report the true-AI backend as unavailable through `/info` and the UI.
+
 ## Project Structure
 
 ```
@@ -76,6 +95,7 @@ gui.py                   Native desktop window launcher (pywebview)
 run_windows.bat          Double-click launcher for Windows
 generator/
   ai_generator.py        Corpus-trained AI song generator (EDMAIGenerator)
+  true_ai_backend.py     Optional real-model text-to-audio backend
   audio_synthesizer.py   NumPy audio synthesis engine
 templates/
   index.html             UI template

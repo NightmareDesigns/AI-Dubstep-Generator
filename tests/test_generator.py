@@ -5,12 +5,67 @@ Run with: python -m pytest tests/ -v
 
 import builtins
 import importlib.util
+import io
 from pathlib import Path
+import wave
 
 import pytest
 
 from generator.ai_generator import EDMAIGenerator, DubstepAIGenerator
 from generator.audio_synthesizer import DubstepSynthesizer
+from generator.true_ai_backend import TrueAIMusicBackend
+
+
+def _wav_bytes_for_test() -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(b"\x00\x00" * 64)
+    return buf.getvalue()
+
+
+class _AvailableTrueAIBackend:
+
+    def __init__(self):
+        self._info = {
+            "type": "true_ai_audio",
+            "provider": "test_provider",
+            "model_name": "test-model",
+            "available": True,
+            "error": None,
+        }
+        self._descriptor_backend = TrueAIMusicBackend(
+            pipeline_factory=lambda *args, **kwargs: None
+        )
+
+    def is_available(self):
+        return True
+
+    def get_info(self):
+        return dict(self._info)
+
+    def build_descriptor(self, prompt, bpm, key, scale, style, bars):
+        return self._descriptor_backend.build_descriptor(prompt, bpm, key, scale, style, bars)
+
+    def render_wav(self, prompt, bpm, key, scale, style, bars):
+        return _wav_bytes_for_test()
+
+
+class _UnavailableTrueAIBackend:
+
+    def is_available(self):
+        return False
+
+    def get_info(self):
+        return {
+            "type": "true_ai_audio",
+            "provider": "test_provider",
+            "model_name": "missing-model",
+            "available": False,
+            "error": "missing optional true AI dependencies",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +353,7 @@ class TestFlaskApp:
 
     def setup_method(self):
         import app as flask_app
+        self.flask_app = flask_app
         flask_app.app.config["TESTING"] = True
         self.client = flask_app.app.test_client()
 
@@ -326,6 +382,41 @@ class TestFlaskApp:
         data = rv.get_json()
         assert "bpm" in data
 
+    def test_info_endpoint_reports_true_ai_backend(self):
+        rv = self.client.get("/info")
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["default_mode"] == "song_sketch"
+        assert data["song_sketch"]["type"] == "corpus_sequence_model"
+        assert "true_ai" in data
+
+    def test_generate_true_ai_descriptor_when_backend_available(self, monkeypatch):
+        monkeypatch.setattr(self.flask_app, "_true_ai_backend", _AvailableTrueAIBackend())
+        rv = self.client.post(
+            "/generate",
+            json={
+                "generation_mode": "true_ai",
+                "prompt": "melodic dubstep anthem",
+                "bpm": 150,
+                "style": "brostep",
+                "bars": 4,
+            },
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["generation_mode"] == "true_ai"
+        assert data["generator"]["type"] == "true_ai_audio"
+        assert "melodic dubstep anthem" in data["true_ai"]["prompt_text"]
+
+    def test_generate_true_ai_returns_503_when_backend_unavailable(self, monkeypatch):
+        monkeypatch.setattr(self.flask_app, "_true_ai_backend", _UnavailableTrueAIBackend())
+        rv = self.client.post(
+            "/generate",
+            json={"generation_mode": "true_ai", "prompt": "future bass ballad"},
+        )
+        assert rv.status_code == 503
+        assert "missing optional true AI dependencies" in rv.get_json()["error"]
+
     def test_render_returns_wav(self):
         # First generate a pattern
         rv_gen  = self.client.post(
@@ -346,6 +437,21 @@ class TestFlaskApp:
         )
         assert rv.status_code == 200
         assert rv.content_type == "audio/wav"
+
+    def test_render_true_ai_pattern_returns_wav(self, monkeypatch):
+        monkeypatch.setattr(self.flask_app, "_true_ai_backend", _AvailableTrueAIBackend())
+        pattern = _AvailableTrueAIBackend().build_descriptor(
+            "epic synthwave crossover",
+            128,
+            "C",
+            "minor",
+            "classic",
+            4,
+        )
+        rv = self.client.post("/render", json={"pattern": pattern})
+        assert rv.status_code == 200
+        assert rv.content_type == "audio/wav"
+        assert rv.data[:4] == b"RIFF"
 
     # ------------------------------------------------------------------
     # Dubstep Tools API tests

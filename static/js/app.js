@@ -13,6 +13,9 @@ const barsDisplay   = document.getElementById("bars-display");
 const keySelect     = document.getElementById("key");
 const scaleSelect   = document.getElementById("scale");
 const styleSelect   = document.getElementById("style");
+const generationModeSelect = document.getElementById("generation-mode");
+const promptInput   = document.getElementById("prompt");
+const modeDisplay   = document.getElementById("mode-display");
 const btnGenerate   = document.getElementById("btn-generate");
 const btnPlay       = document.getElementById("btn-play");
 const btnStop       = document.getElementById("btn-stop");
@@ -61,6 +64,7 @@ let masterGain      = null;
 let lowpassFilter   = null;
 let highpassFilter  = null;
 let audioGraphReady = false;
+let backendInfo     = null;
 
 // ── Slider sync ─────────────────────────────────────────────────────────────
 
@@ -126,10 +130,49 @@ djTempo.addEventListener("input", () => {
   if (audioSource) audioSource.playbackRate.value = value;
 });
 
+generationModeSelect.addEventListener("change", () => {
+  updateGenerationModeState();
+});
+
+// ── Backend info ────────────────────────────────────────────────────────────
+
+async function loadBackendInfo() {
+  try {
+    const response = await fetch("/info");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    backendInfo = await response.json();
+    const trueAI = backendInfo.true_ai || {};
+    if (modeDisplay) {
+      modeDisplay.textContent = trueAI.available
+        ? `True AI ready: ${trueAI.model_name}`
+        : (trueAI.error || "True AI backend unavailable");
+      modeDisplay.classList.toggle("mode-available", !!trueAI.available);
+      modeDisplay.classList.toggle("mode-unavailable", !trueAI.available);
+    }
+  } catch (err) {
+    if (modeDisplay) {
+      modeDisplay.textContent = `Backend info unavailable: ${err.message}`;
+      modeDisplay.classList.add("mode-unavailable");
+    }
+  }
+
+  updateGenerationModeState();
+}
+
+function updateGenerationModeState() {
+  const isTrueAI = generationModeSelect.value === "true_ai";
+  promptInput.disabled = !isTrueAI;
+  promptInput.placeholder = isTrueAI
+    ? "Describe the music you want the real AI model to generate."
+    : "Prompt is used only in True AI Audio mode.";
+}
+
 // ── Generate ────────────────────────────────────────────────────────────────
 
 btnGenerate.addEventListener("click", async () => {
-  setStatus("Generating song…", "busy");
+  const isTrueAI = generationModeSelect.value === "true_ai";
+  setStatus(isTrueAI ? "Preparing true AI music request…" : "Generating song sketch…", "busy");
   btnGenerate.disabled = true;
 
   try {
@@ -140,6 +183,8 @@ btnGenerate.addEventListener("click", async () => {
       scale: scaleSelect.value,
       style: styleSelect.value,
       bars:  parseInt(barsSlider.value, 10),
+      generation_mode: generationModeSelect.value,
+      prompt: promptInput.value,
     };
 
     // Add dubstep tools parameters (only if not set to auto)
@@ -172,13 +217,21 @@ btnGenerate.addEventListener("click", async () => {
     patternJson.textContent = JSON.stringify(currentPattern, null, 2);
     clearWaveform();
 
-    btnPlay.disabled     = false;
-    btnDownload.disabled = false;
-    const sectionCount = currentPattern.song?.sections?.length || 0;
-    setStatus(
-      `Song generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM with ${sectionCount} sections`,
-      "success",
-    );
+     btnPlay.disabled     = false;
+     btnDownload.disabled = false;
+    if (isTrueAIPattern(currentPattern)) {
+      const modelName = escapeHtml(currentPattern.generator?.model_name ?? "unknown model");
+      setStatus(
+        `True AI request ready — click Play or Download to render ${modelName}`,
+        "success",
+      );
+    } else {
+      const sectionCount = currentPattern.song?.sections?.length || 0;
+      setStatus(
+        `Song generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM with ${sectionCount} sections`,
+        "success",
+      );
+    }
 
   } catch (err) {
     setStatus(`Error: ${err.message}`, "error");
@@ -269,7 +322,9 @@ btnDownload.addEventListener("click", async () => {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
-    a.download = `dubstep_${currentPattern.key}_${currentPattern.bpm}bpm.wav`;
+    a.download = isTrueAIPattern(currentPattern)
+      ? `true_ai_${currentPattern.style}_${currentPattern.bpm}bpm.wav`
+      : `dubstep_${currentPattern.key}_${currentPattern.bpm}bpm.wav`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -339,10 +394,29 @@ function setStatus(msg, type = "") {
   statusBar.className   = "status-bar" + (type ? " " + type : "");
 }
 
+function isTrueAIPattern(pattern) {
+  return pattern?.generation_mode === "true_ai"
+    || pattern?.generator?.type === "true_ai_audio";
+}
+
 // ── Pattern grid renderer ───────────────────────────────────────────────────
 
 function renderPatternGrid(pattern) {
   patternGrid.innerHTML = "";
+
+  if (isTrueAIPattern(pattern)) {
+    const promptText = getTrueAIPromptText(pattern);
+    const summary = document.createElement("div");
+    summary.className = "true-ai-summary";
+    summary.innerHTML = `
+      <strong>True AI Audio Request</strong>
+      <span>Prompt: ${escapeHtml(promptText)}</span>
+      <span>Model: ${escapeHtml(pattern.generator?.model_name || "Unknown model")}</span>
+      <span>Estimated length: ${escapeHtml(String(pattern.true_ai?.estimated_duration_seconds || ""))} seconds</span>
+    `;
+    patternGrid.appendChild(summary);
+    return;
+  }
 
   const tracks = [
     { label: "Kick",  data: pattern.drums.kick,  cls: "active-kick"  },
@@ -392,6 +466,20 @@ function buildBassStepMap(pattern) {
   });
 }
 
+function getTrueAIPromptText(pattern) {
+  return pattern?.true_ai?.prompt_text ?? pattern?.prompt ?? "Auto-generated prompt";
+}
+
+function escapeHtml(value) {
+  const safeValue = value == null ? "" : `${value}`;
+  return safeValue
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ── Waveform visualizer ──────────────────────────────────────────────────────
 
 function drawWaveform(buffer) {
@@ -435,6 +523,8 @@ function clearWaveform() {
 
 // Initialize canvas background
 clearWaveform();
+loadBackendInfo();
+updateGenerationModeState();
 
 // Prime DJ control displays with their default values (guard in case elements are missing)
 if (djVolume) djVolume.dispatchEvent(new Event("input"));
