@@ -116,6 +116,20 @@ class TestWindowsHelpers:
         )
 
 
+class TestBrowserFallback:
+
+    def test_launch_browser_opens_default_browser(self):
+        with patch.object(gui.webbrowser, "open", return_value=True) as mock_open:
+            gui._launch_browser("http://127.0.0.1:5000/")
+
+        mock_open.assert_called_once_with("http://127.0.0.1:5000/")
+
+    def test_launch_browser_raises_when_browser_cannot_open(self):
+        with patch.object(gui.webbrowser, "open", return_value=False):
+            with pytest.raises(RuntimeError, match="default browser"):
+                gui._launch_browser("http://127.0.0.1:5000/")
+
+
 # ---------------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------------
@@ -174,6 +188,19 @@ class TestMain:
              patch.object(gui, "_wait_for_flask"):
             gui.main()
         mock_set_app_id.assert_called_once()
+
+    def test_falls_back_to_browser_when_pywebview_is_unavailable(self):
+        with patch.object(gui, "webview", None), \
+             patch.object(gui, "_set_windows_app_id"), \
+             patch.object(gui, "_start_flask"), \
+             patch.object(gui, "_wait_for_flask"), \
+             patch.object(gui, "_launch_browser") as mock_launch_browser:
+            gui.main()
+
+        mock_launch_browser.assert_called_once()
+        assert mock_launch_browser.call_args.args[0].startswith("http://127.0.0.1:")
+        _webview_mock.create_window.assert_not_called()
+        _webview_mock.start.assert_not_called()
 
 
 class TestLaunch:
