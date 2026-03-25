@@ -245,7 +245,7 @@ class TestDubstepSynthesizer:
             "audio_synthesizer_no_scipy", module_path
         )
         module = importlib.util.module_from_spec(spec)
-        assert spec.loader is not None
+        assert spec.loader is not None, "expected a loader for audio_synthesizer.py"
         spec.loader.exec_module(module)
 
         assert hasattr(module, "DubstepSynthesizer")
