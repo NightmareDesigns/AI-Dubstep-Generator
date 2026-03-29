@@ -76,13 +76,29 @@
 
       <div class="control-group">
         <label for="bars">Bars</label>
-        <input type="range" id="bars" min="1" max="16" value="4" step="1" />
+        <input type="range" id="bars" min="1" max="64" value="4" step="1" />
         <span class="value-display" id="bars-display">4</span>
       </div>
 
       <div class="control-group prompt-group">
         <label for="prompt">True AI Prompt</label>
         <textarea id="prompt" rows="3" placeholder="Describe the music you want the real AI model to generate. Example: cinematic melodic dubstep with a female vocal hook and huge drops."></textarea>
+      </div>
+
+      <div class="control-group">
+        <label for="include-vocals">
+          <input type="checkbox" id="include-vocals" />
+          Include Vocals
+        </label>
+      </div>
+
+      <div class="control-group" id="vocal-style-group" style="display:none">
+        <label for="vocal-style">Vocal Style</label>
+        <select id="vocal-style">
+          <option value="lead">Lead Vocals</option>
+          <option value="backing">Backing Vocals</option>
+          <option value="call_response">Call &amp; Response</option>
+        </select>
       </div>
     </section>
 

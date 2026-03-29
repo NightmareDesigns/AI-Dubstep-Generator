@@ -18,6 +18,28 @@ SAMPLE_RATE = 44100  # Hz
 BASE_LOWPASS_TAPS = 31
 LOWPASS_TAP_SPAN = 32
 
+# ---------------------------------------------------------------------------
+# Vocal synthesis constants
+# ---------------------------------------------------------------------------
+
+# Phoneme → lowpass cutoff frequency (Hz) mapping.
+# Each entry approximates the dominant first formant of the vowel, giving
+# a perceptibly different tonal colour to each phoneme.
+_VOCAL_PHONEME_CUTOFFS: dict[str, float] = {
+    "ah": 1200.0,  # open central vowel – mid-bright
+    "eh": 1900.0,  # front mid vowel – bright
+    "oo": 500.0,   # back close vowel – dark
+    "oh": 700.0,   # back mid vowel – warm
+    "ee": 2300.0,  # front close vowel – very bright
+}
+
+# Vocal oscillator amplitudes
+_VOCAL_FUNDAMENTAL_AMP = 0.48  # amplitude of the fundamental sawtooth (glottal source)
+_VOCAL_HARMONIC_AMP    = 0.16  # amplitude of the 2nd-harmonic layer
+
+# Mix level of the vocal track relative to other tracks (0–1 scale)
+_VOCAL_MIX_LEVEL = 0.30
+
 
 # ---------------------------------------------------------------------------
 # Low-level waveform helpers
@@ -194,6 +216,38 @@ def _synth_lead_note(midi_note: int, dur_steps: int, step_dur: float) -> np.ndar
     return _adsr(filtered, attack=0.01, decay=0.05, sustain=0.55, release=0.12)
 
 
+def _synth_vocal_note(
+    midi_note: int,
+    dur_steps: int,
+    step_dur: float,
+    phoneme: str = "ah",
+) -> np.ndarray:
+    """
+    Synthesise a vocal-like note using a glottal source + formant filtering.
+
+    The synthesis model is intentionally simple to keep the audio renderer
+    free of external dependencies:
+    - A sawtooth oscillator (buzz source) models the vibrating vocal cords.
+    - A second harmonic is mixed in at lower amplitude to enrich the timbre.
+    - A windowed-sinc low-pass filter tuned to the phoneme's dominant first
+      formant shapes the spectral envelope, giving each vowel a distinct
+      tonal colour ("oo" is dark/warm, "ee" is bright, etc.).
+    - An ADSR envelope with a longer attack/release than the lead synth makes
+      the phrasing feel more breath-like.
+    """
+    dur = dur_steps * step_dur
+    freq = _midi_to_hz(midi_note)
+
+    # Buzz oscillator: fundamental sawtooth + 2nd harmonic
+    source = _sawtooth(freq, dur, amp=_VOCAL_FUNDAMENTAL_AMP) + _sawtooth(freq * 2.0, dur, amp=_VOCAL_HARMONIC_AMP)
+
+    # Formant shaping via first-formant lowpass
+    cutoff = float(_VOCAL_PHONEME_CUTOFFS.get(phoneme, 1200.0))
+    result = _lowpass(source, cutoff, resonance=0.72)
+
+    return _adsr(result, attack=0.04, decay=0.07, sustain=0.62, release=0.22)
+
+
 # ---------------------------------------------------------------------------
 # Pattern → audio renderer
 # ---------------------------------------------------------------------------
@@ -279,6 +333,23 @@ class DubstepSynthesizer:
                 sig = _synth_lead_note(midi, duration, step_dur) * velocity * 0.35
                 end = step_offset + len(sig)
                 mix[step_offset:min(end, total_samples)] += sig[:min(len(sig), total_samples - step_offset)]
+
+        # ---- vocal track (optional) ----
+        vocals = pattern.get("vocals")
+        if vocals is not None:
+            vocal_notes = vocals.get("notes", [])
+            for bar_idx in range(min(bars, len(vocal_notes))):
+                bar_offset = int(SAMPLE_RATE * bar_dur * bar_idx)
+                for note in vocal_notes[bar_idx]:
+                    step = note["step"]
+                    midi = note["midi"]
+                    duration = note["duration"]
+                    velocity = note["velocity"] / 127.0
+                    phoneme = note.get("phoneme", "ah")
+                    step_offset = bar_offset + int(SAMPLE_RATE * step_dur * step)
+                    sig = _synth_vocal_note(midi, duration, step_dur, phoneme) * velocity * _VOCAL_MIX_LEVEL
+                    end = step_offset + len(sig)
+                    mix[step_offset:min(end, total_samples)] += sig[:min(len(sig), total_samples - step_offset)]
 
         # ---- normalise & convert to 16-bit PCM ----
         peak = np.max(np.abs(mix))

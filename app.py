@@ -38,6 +38,19 @@ _synthesizer = DubstepSynthesizer()
 _true_ai_backend = TrueAIMusicBackend()
 
 
+def _parse_bool(value: object, default: bool = False) -> bool:
+    """Safely coerce a JSON value to bool, handling string "true"/"false"."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lower = value.strip().lower()
+        if lower == "true":
+            return True
+        if lower == "false":
+            return False
+    return default
+
+
 def _is_true_ai_pattern(pattern: dict) -> bool:
     return (
         pattern.get("generation_mode") == "true_ai"
@@ -109,6 +122,8 @@ def generate():
             style=str(data.get("style", "classic")),
             bars=int(data.get("bars", 4)),
             wobble_override=wobble_override if wobble_override else None,
+            include_vocals=_parse_bool(data.get("include_vocals", False)),
+            vocal_style=str(data.get("vocal_style", "lead")),
         )
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -142,6 +157,8 @@ def render_audio():
                     scale=str(data.get("scale", "minor")),
                     style=str(data.get("style", "classic")),
                     bars=int(data.get("bars", 4)),
+                    include_vocals=_parse_bool(data.get("include_vocals", False)),
+                    vocal_style=str(data.get("vocal_style", "lead")),
                 )
             except (ValueError, TypeError) as exc:
                 return jsonify({"error": str(exc)}), 400
