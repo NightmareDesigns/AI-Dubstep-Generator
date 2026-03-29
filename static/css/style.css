@@ -19,6 +19,7 @@
   --snare-color:  #f59e0b;
   --hihat-color:  #22d3ee;
   --bass-color:   #a78bfa;
+  --vocals-color: #f472b6;
   --radius:       8px;
   --transition:   0.2s ease;
 }
@@ -318,10 +319,11 @@ html, body {
   flex-shrink: 0;
 }
 
-.step-cell.active-kick   { background: var(--kick-color);  border-color: #fca5a5; }
-.step-cell.active-snare  { background: var(--snare-color); border-color: #fde68a; }
-.step-cell.active-hihat  { background: var(--hihat-color); border-color: #a5f3fc; }
-.step-cell.active-bass   { background: var(--bass-color);  border-color: #ddd6fe; }
+.step-cell.active-kick   { background: var(--kick-color);   border-color: #fca5a5; }
+.step-cell.active-snare  { background: var(--snare-color);  border-color: #fde68a; }
+.step-cell.active-hihat  { background: var(--hihat-color);  border-color: #a5f3fc; }
+.step-cell.active-bass   { background: var(--bass-color);   border-color: #ddd6fe; }
+.step-cell.active-lead   { background: var(--vocals-color); border-color: #fbcfe8; }
 
 .step-cell.beat-marker {
   border-color: rgba(255,255,255,.15);

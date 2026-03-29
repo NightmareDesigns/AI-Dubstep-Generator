@@ -638,7 +638,7 @@ class EDMAIGenerator:
                 note_copy = dict(note)
                 note_copy["phoneme"] = _VOCAL_PHONEME_CYCLE[note_idx % len(_VOCAL_PHONEME_CYCLE)]
                 if vocal_style == "backing":
-                    # Backing vocals: reduce velocity and shift slightly
+                    # Backing vocals: reduce velocity for a softer delivery
                     note_copy["velocity"] = max(_BACKING_VOCAL_MIN_VELOCITY, note_copy["velocity"] - _BACKING_VOCAL_VELOCITY_REDUCTION)
                 annotated.append(note_copy)
             notes.append(annotated)

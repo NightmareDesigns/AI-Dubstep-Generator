@@ -726,8 +726,8 @@ class TestVocalTrack:
         assert sum(s["bars"] for s in result["song"]["sections"]) == 32
         assert len(result["song"]["bar_energies"]) == 32
 
-    def test_bars_64_renders_to_wav(self):
-        pattern = self.gen.generate(bars=16)  # 16 bars so test is fast
+    def test_bars_16_renders_to_wav(self):
+        pattern = self.gen.generate(bars=16)
         wav = self.synth.render(pattern)
         assert wav[:4] == b"RIFF"
 
@@ -742,15 +742,16 @@ class TestVocalTrack:
         assert wav[:4] == b"RIFF"
         assert wav[8:12] == b"WAVE"
 
-    def test_render_with_vocals_longer_than_without(self):
-        # Both use same bars; just verify both render successfully and
-        # vocal render is at least as long (same audio length, different content)
+    def test_render_with_vocals_same_length_as_without(self):
+        # Vocal and non-vocal renders of the same bar count must produce
+        # identically-sized WAV files (same total_samples, same sample rate).
         pattern_no_vox = self.gen.generate(bars=2, include_vocals=False)
         pattern_vox    = self.gen.generate(bars=2, include_vocals=True)
         wav_no_vox = self.synth.render(pattern_no_vox)
         wav_vox    = self.synth.render(pattern_vox)
         assert isinstance(wav_no_vox, bytes)
         assert isinstance(wav_vox, bytes)
+        assert len(wav_vox) == len(wav_no_vox)
 
     def test_render_backing_vocals(self):
         pattern = self.gen.generate(bars=2, include_vocals=True, vocal_style="backing")
@@ -765,11 +766,6 @@ class TestVocalTrack:
     # ------------------------------------------------------------------
     # Flask API tests
     # ------------------------------------------------------------------
-
-    def setup_method_api(self):
-        import app as flask_app
-        flask_app.app.config["TESTING"] = True
-        self.client = flask_app.app.test_client()
 
     def test_api_vocals_absent_by_default(self):
         import app as flask_app
@@ -792,6 +788,28 @@ class TestVocalTrack:
         assert data["vocals"] is not None
         assert data["vocals"]["instrument"] == "vocal_synth"
         assert data["vocals"]["style"] == "lead"
+
+    def test_api_vocals_string_false_disables_vocals(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        client = flask_app.app.test_client()
+        rv = client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "include_vocals": "false"},
+        )
+        assert rv.status_code == 200
+        assert rv.get_json()["vocals"] is None
+
+    def test_api_vocals_string_true_enables_vocals(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        client = flask_app.app.test_client()
+        rv = client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 2, "include_vocals": "true"},
+        )
+        assert rv.status_code == 200
+        assert rv.get_json()["vocals"] is not None
 
     def test_api_render_with_vocals(self):
         import app as flask_app

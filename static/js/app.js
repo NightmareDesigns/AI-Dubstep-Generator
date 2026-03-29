@@ -59,6 +59,10 @@ const djTempoDisplay    = document.getElementById("dj-tempo-display");
 const DJ_LOW_PASS_Q  = 0.707;
 const DJ_HIGH_PASS_Q = 0.707;
 
+// Maximum number of bars rendered in the pattern grid to keep the DOM
+// manageable for large (e.g. 64-bar) songs.
+const MAX_GRID_BARS = 8;
+
 // ── State ───────────────────────────────────────────────────────────────────
 
 let currentPattern  = null;
@@ -481,11 +485,12 @@ function renderPatternGrid(pattern) {
     const cells = document.createElement("div");
     cells.className = "step-cells";
 
-    // Show only the first bar for clarity; cycle through bars visually
-    const bars   = track.data;
-    const STEPS  = pattern.steps_per_bar;
+    // Cap display to MAX_GRID_BARS bars to avoid a huge DOM on long patterns
+    const bars        = track.data;
+    const STEPS       = pattern.steps_per_bar;
+    const displayBars = Math.min(bars.length, MAX_GRID_BARS);
 
-    for (let b = 0; b < bars.length; b++) {
+    for (let b = 0; b < displayBars; b++) {
       for (let s = 0; s < STEPS; s++) {
         const cell = document.createElement("div");
         cell.className = "step-cell";
@@ -494,7 +499,17 @@ function renderPatternGrid(pattern) {
         cells.appendChild(cell);
       }
     }
-    row.appendChild(cells);
+
+    if (bars.length > MAX_GRID_BARS) {
+      const overflowLabel = document.createElement("span");
+      overflowLabel.className   = "row-label";
+      overflowLabel.textContent = `+${bars.length - MAX_GRID_BARS}`;
+      overflowLabel.title       = `${bars.length - MAX_GRID_BARS} more bars not shown`;
+      row.appendChild(cells);
+      row.appendChild(overflowLabel);
+    } else {
+      row.appendChild(cells);
+    }
     patternGrid.appendChild(row);
   }
 }
