@@ -216,7 +216,20 @@ _SECTION_ENERGY = {
 
 _STEP_JITTER_CHOICES = [0, 0, 0, 1, -1]
 _MIN_SONG_SECTIONS = 1
-_MAX_SONG_SECTIONS = 6
+_MAX_SONG_SECTIONS = 8
+
+# Cyclic phoneme sequence used for vocal note annotation
+_VOCAL_PHONEME_CYCLE = ["ah", "oh", "eh", "oo", "ee", "ah", "oh"]
+
+# Vocal styles supported by the vocal track generator
+_VOCAL_STYLES = {"lead", "backing", "call_response"}
+
+# Energy threshold below which no vocals are produced (intro/outro silence)
+_VOCAL_SILENCE_THRESHOLD = 0.3
+
+# Backing vocals: velocity reduction and minimum velocity
+_BACKING_VOCAL_VELOCITY_REDUCTION = 18
+_BACKING_VOCAL_MIN_VELOCITY = 60
 _DEFAULT_BAR_ENERGY = 0.6
 _VELOCITY_JITTER_MIN = -6
 _VELOCITY_JITTER_MAX = 6
@@ -362,6 +375,8 @@ class EDMAIGenerator:
         style: str = "classic",
         bars: int = 4,
         wobble_override: dict[str, Any] | None = None,
+        include_vocals: bool = False,
+        vocal_style: str = "lead",
     ) -> dict[str, Any]:
         """
         Generate a complete EDM song sketch.
@@ -374,19 +389,24 @@ class EDMAIGenerator:
         style: EDM genre – "classic" (dubstep), "brostep", "future_bass",
                "riddim", "house", "techno", "trance", "drum_and_bass",
                "trap", or "electro".
-        bars:  Number of bars to generate (1–16).
+        bars:  Number of bars to generate (1–64).
         wobble_override: Optional dict with wobble parameters to override:
                rate, depth, resonance, shape, cutoff_min, cutoff_max.
+        include_vocals: When True a vocal track is added to the pattern.
+        vocal_style: One of "lead" (prominent melody vocals),
+               "backing" (softer backing vocals), or
+               "call_response" (alternating call-and-response phrases).
 
         Returns
         -------
         A dictionary containing all pattern data ready for the synthesiser.
         """
         bpm = max(80, min(180, int(bpm)))
-        bars = max(1, min(16, int(bars)))
+        bars = max(1, min(64, int(bars)))
         key = key if key in _ROOT_NOTES else "C"
         scale = scale if scale in _SCALE_INTERVALS else "minor"
         style = style if style in _KICK_STATES else "classic"
+        vocal_style = vocal_style if vocal_style in _VOCAL_STYLES else "lead"
 
         song_structure = self._generate_song_structure(style, bars)
         bar_energies = song_structure["bar_energies"]
@@ -394,6 +414,11 @@ class EDMAIGenerator:
         bass_pattern = self._generate_bass(key, scale, style, bars, bar_energies)
         lead_pattern = self._generate_lead(key, scale, style, bars, bar_energies)
         wobble_params = self._generate_wobble(style, bars, bar_energies, wobble_override)
+        vocals_pattern = (
+            self._generate_vocals(key, scale, style, bars, bar_energies, vocal_style)
+            if include_vocals
+            else None
+        )
 
         return {
             "bpm": bpm,
@@ -411,6 +436,8 @@ class EDMAIGenerator:
                     "energy_aware_arrangement",
                     "section_conditioned_layers",
                     "motif_variation",
+                    "optional_vocal_track",
+                    "full_song_length",
                 ],
             },
             "song": song_structure,
@@ -418,6 +445,7 @@ class EDMAIGenerator:
             "bass": bass_pattern,
             "lead": lead_pattern,
             "wobble": wobble_params,
+            "vocals": vocals_pattern,
         }
 
     # ------------------------------------------------------------------
@@ -551,6 +579,75 @@ class EDMAIGenerator:
             "root_midi": root,
             "scale": scale,
             "instrument": "lead_synth",
+            "notes": notes,
+        }
+
+    def _generate_vocals(
+        self,
+        key: str,
+        scale: str,
+        style: str,
+        bars: int,
+        bar_energies: list[float],
+        vocal_style: str = "lead",
+    ) -> dict[str, Any]:
+        """
+        Generate a vocal melody track.
+
+        The vocal melody shares the lead note model but adds phoneme
+        annotations to each note for the formant-based synthesiser.  Low
+        energy bars (intro/outro) are kept silent to mimic real productions
+        where vocals enter on the drop.
+
+        Parameters
+        ----------
+        vocal_style:
+            "lead"          – full-energy lead vocals on active sections.
+            "backing"       – softer, slightly sparser vocals (lower velocity).
+            "call_response" – alternate bars of vocals / silence.
+        """
+        root = _ROOT_NOTES[key] + 12
+        intervals = _SCALE_INTERVALS[scale]
+        bar_tokens = _lead_model(style).sample(bars, self._rng)
+
+        notes: list[list[dict[str, Any]]] = []
+        for bar_idx, bar in enumerate(bar_tokens):
+            energy = self._bar_energy(bar_energies, bar_idx)
+
+            # Silence rules depending on energy and style
+            if energy < _VOCAL_SILENCE_THRESHOLD:
+                notes.append([])
+                continue
+            if vocal_style == "call_response" and bar_idx % 2 == 1:
+                notes.append([])
+                continue
+
+            raw_notes = self._materialize_note_bar(
+                bar,
+                root,
+                intervals,
+                12,
+                [12, 24],
+                energy,
+                "lead",
+            )
+
+            # Annotate each note with a phoneme
+            annotated: list[dict[str, Any]] = []
+            for note_idx, note in enumerate(raw_notes):
+                note_copy = dict(note)
+                note_copy["phoneme"] = _VOCAL_PHONEME_CYCLE[note_idx % len(_VOCAL_PHONEME_CYCLE)]
+                if vocal_style == "backing":
+                    # Backing vocals: reduce velocity and shift slightly
+                    note_copy["velocity"] = max(_BACKING_VOCAL_MIN_VELOCITY, note_copy["velocity"] - _BACKING_VOCAL_VELOCITY_REDUCTION)
+                annotated.append(note_copy)
+            notes.append(annotated)
+
+        return {
+            "root_midi": root,
+            "scale": scale,
+            "style": vocal_style,
+            "instrument": "vocal_synth",
             "notes": notes,
         }
 

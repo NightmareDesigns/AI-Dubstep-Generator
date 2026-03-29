@@ -109,6 +109,8 @@ def generate():
             style=str(data.get("style", "classic")),
             bars=int(data.get("bars", 4)),
             wobble_override=wobble_override if wobble_override else None,
+            include_vocals=bool(data.get("include_vocals", False)),
+            vocal_style=str(data.get("vocal_style", "lead")),
         )
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400
@@ -142,6 +144,8 @@ def render_audio():
                     scale=str(data.get("scale", "minor")),
                     style=str(data.get("style", "classic")),
                     bars=int(data.get("bars", 4)),
+                    include_vocals=bool(data.get("include_vocals", False)),
+                    vocal_style=str(data.get("vocal_style", "lead")),
                 )
             except (ValueError, TypeError) as exc:
                 return jsonify({"error": str(exc)}), 400

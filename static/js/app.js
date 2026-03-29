@@ -40,6 +40,11 @@ const cutoffMaxSlider    = document.getElementById("cutoff-max");
 const cutoffMaxDisplay   = document.getElementById("cutoff-max-display");
 const AudioCtxClass      = window.AudioContext || window.webkitAudioContext;
 
+// Vocal controls DOM references
+const includeVocalsCheck = document.getElementById("include-vocals");
+const vocalStyleGroup    = document.getElementById("vocal-style-group");
+const vocalStyleSelect   = document.getElementById("vocal-style");
+
 // DJ Tools DOM references
 const djVolume          = document.getElementById("dj-volume");
 const djVolumeDisplay   = document.getElementById("dj-volume-display");
@@ -66,6 +71,13 @@ let lowpassFilter   = null;
 let highpassFilter  = null;
 let audioGraphReady = false;
 let backendInfo     = null;
+
+// Vocal style display names for the pattern grid label
+const VOCAL_STYLE_LABELS = {
+  lead:          "Lead Vocals",
+  backing:       "Backing Vocals",
+  call_response: "Call & Response",
+};
 
 // ── Slider sync ─────────────────────────────────────────────────────────────
 
@@ -134,6 +146,19 @@ djTempo.addEventListener("input", () => {
 generationModeSelect.addEventListener("change", () => {
   updateGenerationModeState();
 });
+
+// Vocal controls: show/hide vocal-style selector based on checkbox
+if (includeVocalsCheck) {
+  includeVocalsCheck.addEventListener("change", () => {
+    if (vocalStyleGroup) {
+      vocalStyleGroup.style.display = includeVocalsCheck.checked ? "" : "none";
+    }
+  });
+  // Set initial visibility
+  if (vocalStyleGroup) {
+    vocalStyleGroup.style.display = includeVocalsCheck.checked ? "" : "none";
+  }
+}
 
 // ── Backend info ────────────────────────────────────────────────────────────
 
@@ -206,6 +231,12 @@ btnGenerate.addEventListener("click", async () => {
     requestBody.cutoff_min = parseInt(cutoffMinSlider.value, 10);
     requestBody.cutoff_max = parseInt(cutoffMaxSlider.value, 10);
 
+    // Vocal track parameters
+    requestBody.include_vocals = !!(includeVocalsCheck && includeVocalsCheck.checked);
+    if (requestBody.include_vocals && vocalStyleSelect) {
+      requestBody.vocal_style = vocalStyleSelect.value;
+    }
+
     const response = await fetch("/generate", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -234,8 +265,9 @@ btnGenerate.addEventListener("click", async () => {
       );
     } else {
       const sectionCount = currentPattern.song?.sections?.length || 0;
+      const hasVocals = currentPattern.vocals != null;
       setStatus(
-        `Song generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM with ${sectionCount} sections`,
+        `Song generated — ${currentPattern.style} in ${currentPattern.key} ${currentPattern.scale} at ${currentPattern.bpm} BPM with ${sectionCount} sections${hasVocals ? " + vocals" : ""}`,
         "success",
       );
     }
@@ -432,6 +464,11 @@ function renderPatternGrid(pattern) {
     { label: "Bass",  data: buildBassStepMap(pattern), cls: "active-bass" },
   ];
 
+  if (pattern.vocals) {
+    const vocalLabel = VOCAL_STYLE_LABELS[pattern.vocals.style] || "Vocals";
+    tracks.push({ label: vocalLabel, data: buildNoteStepMap(pattern.vocals, pattern), cls: "active-lead" });
+  }
+
   for (const track of tracks) {
     const row  = document.createElement("div");
     row.className = "pattern-row";
@@ -465,6 +502,17 @@ function renderPatternGrid(pattern) {
 function buildBassStepMap(pattern) {
   // Convert bass notes list to a per-bar step array (1/0) for the grid
   return pattern.bass.notes.map(barNotes => {
+    const steps = new Array(pattern.steps_per_bar).fill(0);
+    for (const note of barNotes) {
+      if (note.step < steps.length) steps[note.step] = 1;
+    }
+    return steps;
+  });
+}
+
+function buildNoteStepMap(track, pattern) {
+  // Generic per-bar step array (1/0) for any note-based track
+  return (track.notes || []).map(barNotes => {
     const steps = new Array(pattern.steps_per_bar).fill(0);
     for (const note of barNotes) {
       if (note.step < steps.length) steps[note.step] = 1;

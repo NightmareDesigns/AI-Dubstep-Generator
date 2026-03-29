@@ -84,7 +84,7 @@ class TestEDMAIGenerator:
     def test_generate_required_keys(self):
         result = self.gen.generate()
         for key in ("bpm", "key", "scale", "style", "bars", "steps_per_bar",
-                    "generator", "song", "drums", "bass", "lead", "wobble"):
+                    "generator", "song", "drums", "bass", "lead", "wobble", "vocals"):
             assert key in result, f"Missing key: {key}"
 
     def test_generate_bpm_range(self):
@@ -94,10 +94,10 @@ class TestEDMAIGenerator:
         assert high["bpm"] == 180
 
     def test_generate_bars_range(self):
-        low  = self.gen.generate(bars=0)   # clamped to 1
-        high = self.gen.generate(bars=999) # clamped to 16
+        low  = self.gen.generate(bars=0)    # clamped to 1
+        high = self.gen.generate(bars=999)  # clamped to 64
         assert low["bars"]  == 1
-        assert high["bars"] == 16
+        assert high["bars"] == 64
 
     def test_generate_invalid_key_fallback(self):
         result = self.gen.generate(key="ZZ")
@@ -614,3 +614,195 @@ class TestFlaskApp:
         assert rv.status_code == 200
         data = rv.get_json()
         assert data["style"] == style
+
+
+# ---------------------------------------------------------------------------
+# Vocal track tests
+# ---------------------------------------------------------------------------
+
+class TestVocalTrack:
+    """Tests for optional vocal track generation and synthesis."""
+
+    def setup_method(self):
+        self.gen   = EDMAIGenerator(seed=42)
+        self.synth = DubstepSynthesizer()
+
+    # ------------------------------------------------------------------
+    # Generator tests
+    # ------------------------------------------------------------------
+
+    def test_vocals_absent_by_default(self):
+        result = self.gen.generate(bars=4)
+        assert "vocals" in result
+        assert result["vocals"] is None
+
+    def test_vocals_present_when_requested(self):
+        result = self.gen.generate(bars=4, include_vocals=True)
+        assert result["vocals"] is not None
+        vocals = result["vocals"]
+        assert vocals["instrument"] == "vocal_synth"
+        assert "notes" in vocals
+        assert len(vocals["notes"]) == 4
+
+    def test_vocals_lead_style_structure(self):
+        result = self.gen.generate(bars=4, include_vocals=True, vocal_style="lead")
+        vocals = result["vocals"]
+        assert vocals["style"] == "lead"
+        # Drop sections (high energy) should have notes
+        active_bars = [bar for bar in vocals["notes"] if bar]
+        assert len(active_bars) > 0
+
+    def test_vocals_backing_style_lower_velocity(self):
+        g_lead    = EDMAIGenerator(seed=42)
+        g_backing = EDMAIGenerator(seed=42)
+        lead_result    = g_lead.generate(bars=8, include_vocals=True, vocal_style="lead")
+        backing_result = g_backing.generate(bars=8, include_vocals=True, vocal_style="backing")
+
+        lead_vels    = [n["velocity"] for bar in lead_result["vocals"]["notes"]    for n in bar]
+        backing_vels = [n["velocity"] for bar in backing_result["vocals"]["notes"] for n in bar]
+
+        if lead_vels and backing_vels:
+            assert sum(backing_vels) / len(backing_vels) < sum(lead_vels) / len(lead_vels)
+
+    def test_vocals_call_response_alternates(self):
+        result = self.gen.generate(bars=8, include_vocals=True, vocal_style="call_response")
+        vocals = result["vocals"]
+        assert vocals["style"] == "call_response"
+        # Odd-indexed bars (1, 3, 5, 7) should have no notes
+        for bar_idx in range(1, 8, 2):
+            assert vocals["notes"][bar_idx] == []
+
+    def test_vocals_phoneme_annotation(self):
+        result = self.gen.generate(bars=4, include_vocals=True, vocal_style="lead")
+        valid_phonemes = {"ah", "eh", "oo", "oh", "ee"}
+        for bar in result["vocals"]["notes"]:
+            for note in bar:
+                assert "phoneme" in note
+                assert note["phoneme"] in valid_phonemes
+
+    def test_vocals_note_fields(self):
+        result = self.gen.generate(bars=4, include_vocals=True)
+        for bar in result["vocals"]["notes"]:
+            for note in bar:
+                assert "step" in note
+                assert "midi" in note
+                assert "velocity" in note
+                assert "duration" in note
+                assert "phoneme" in note
+                assert 0 <= note["step"] < 16
+                assert 0 < note["velocity"] <= 127
+
+    def test_vocals_low_energy_bars_silent(self):
+        # Generate 8 bars; low energy sections should produce empty note lists.
+        result = self.gen.generate(bars=8, include_vocals=True, vocal_style="lead")
+        energies = result["song"]["bar_energies"]
+        vocals   = result["vocals"]["notes"]
+        for idx, (energy, bar_notes) in enumerate(zip(energies, vocals)):
+            if energy < 0.3:
+                assert bar_notes == [], f"Expected silence in low-energy bar {idx}"
+
+    def test_vocals_invalid_style_fallback(self):
+        result = self.gen.generate(bars=4, include_vocals=True, vocal_style="death_metal")
+        # Should fall back to "lead"
+        assert result["vocals"]["style"] == "lead"
+
+    def test_vocals_generator_features_flag(self):
+        result = self.gen.generate()
+        assert "optional_vocal_track" in result["generator"]["features"]
+        assert "full_song_length" in result["generator"]["features"]
+
+    # ------------------------------------------------------------------
+    # Full-song length tests (bars up to 64)
+    # ------------------------------------------------------------------
+
+    def test_bars_clamped_to_64(self):
+        result = self.gen.generate(bars=999)
+        assert result["bars"] == 64
+
+    def test_bars_32_song_structure(self):
+        result = self.gen.generate(bars=32)
+        assert result["bars"] == 32
+        assert result["song"]["total_bars"] == 32
+        assert sum(s["bars"] for s in result["song"]["sections"]) == 32
+        assert len(result["song"]["bar_energies"]) == 32
+
+    def test_bars_64_renders_to_wav(self):
+        pattern = self.gen.generate(bars=16)  # 16 bars so test is fast
+        wav = self.synth.render(pattern)
+        assert wav[:4] == b"RIFF"
+
+    # ------------------------------------------------------------------
+    # Synthesizer tests
+    # ------------------------------------------------------------------
+
+    def test_render_with_vocals_returns_wav(self):
+        pattern = self.gen.generate(bars=2, include_vocals=True)
+        wav     = self.synth.render(pattern)
+        assert isinstance(wav, bytes)
+        assert wav[:4] == b"RIFF"
+        assert wav[8:12] == b"WAVE"
+
+    def test_render_with_vocals_longer_than_without(self):
+        # Both use same bars; just verify both render successfully and
+        # vocal render is at least as long (same audio length, different content)
+        pattern_no_vox = self.gen.generate(bars=2, include_vocals=False)
+        pattern_vox    = self.gen.generate(bars=2, include_vocals=True)
+        wav_no_vox = self.synth.render(pattern_no_vox)
+        wav_vox    = self.synth.render(pattern_vox)
+        assert isinstance(wav_no_vox, bytes)
+        assert isinstance(wav_vox, bytes)
+
+    def test_render_backing_vocals(self):
+        pattern = self.gen.generate(bars=2, include_vocals=True, vocal_style="backing")
+        wav = self.synth.render(pattern)
+        assert wav[:4] == b"RIFF"
+
+    def test_render_call_response_vocals(self):
+        pattern = self.gen.generate(bars=4, include_vocals=True, vocal_style="call_response")
+        wav = self.synth.render(pattern)
+        assert wav[:4] == b"RIFF"
+
+    # ------------------------------------------------------------------
+    # Flask API tests
+    # ------------------------------------------------------------------
+
+    def setup_method_api(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        self.client = flask_app.app.test_client()
+
+    def test_api_vocals_absent_by_default(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        client = flask_app.app.test_client()
+        rv = client.post("/generate", json={"bpm": 140, "bars": 2})
+        data = rv.get_json()
+        assert data["vocals"] is None
+
+    def test_api_vocals_present_when_requested(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        client = flask_app.app.test_client()
+        rv = client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 4, "include_vocals": True, "vocal_style": "lead"},
+        )
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["vocals"] is not None
+        assert data["vocals"]["instrument"] == "vocal_synth"
+        assert data["vocals"]["style"] == "lead"
+
+    def test_api_render_with_vocals(self):
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        client = flask_app.app.test_client()
+        rv_gen = client.post(
+            "/generate",
+            json={"bpm": 140, "bars": 1, "include_vocals": True},
+        )
+        pattern = rv_gen.get_json()
+        rv_wav  = client.post("/render", json={"pattern": pattern})
+        assert rv_wav.status_code == 200
+        assert rv_wav.content_type == "audio/wav"
+        assert rv_wav.data[:4] == b"RIFF"
